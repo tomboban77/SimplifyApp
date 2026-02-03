@@ -1,9 +1,9 @@
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import { Appbar, Menu, Portal, Dialog, Button, TextInput } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { usePDFStore } from '@/store/pdfStore';
-import { PDFViewerNative } from '@/components/PDFViewerNative';
+import { PDFViewer } from '@/components/PDFViewer';
 import { useAIService } from '@/services/aiService';
 
 export default function PDFScreen() {
@@ -64,6 +64,20 @@ export default function PDFScreen() {
     }
   };
 
+  const handleSavePDF = () => {
+    if (!pdf.annotations || pdf.annotations.length === 0) {
+      Alert.alert('No Annotations', 'There are no annotations to save.');
+      setMenuVisible(false);
+      return;
+    }
+
+    Alert.alert(
+      'Annotations Saved',
+      `Your ${pdf.annotations.length} annotation(s) have been saved with this PDF. They will be preserved when you open this PDF again.`,
+      [{ text: 'OK', onPress: () => setMenuVisible(false) }]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Appbar.Header>
@@ -81,10 +95,16 @@ export default function PDFScreen() {
         >
           <Menu.Item onPress={handleSummarize} title="AI Summarize" />
           <Menu.Item onPress={handleExplain} title="AI Explain" />
+          <Menu.Item 
+            onPress={handleSavePDF} 
+            title="Save Annotations" 
+            leadingIcon="content-save"
+            disabled={!pdf.annotations || pdf.annotations.length === 0}
+          />
         </Menu>
       </Appbar.Header>
 
-      <PDFViewerNative 
+      <PDFViewer 
         uri={pdf.uri} 
         annotations={pdf.annotations || []}
         onAnnotationAdd={handleAnnotationAdd}

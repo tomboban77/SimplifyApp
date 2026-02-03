@@ -37,6 +37,15 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="resumes"
+        options={{
+          title: 'Resumes',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="file-account" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
