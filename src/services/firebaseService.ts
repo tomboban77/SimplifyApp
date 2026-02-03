@@ -1,6 +1,6 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore, collection, doc, setDoc, deleteDoc, getDocs, query, orderBy, Timestamp, onSnapshot } from 'firebase/firestore';
-import { Document, PDF } from '@/types';
+import { Document, PDF, Resume } from '@/types';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -262,6 +262,90 @@ export const pdfsService = {
       callback(pdfs);
     }, (error) => {
       console.error('❌ Firebase PDFs subscription error:', error);
+    });
+  },
+};
+
+// Resumes Service for Firebase
+export const resumesService = {
+  // Create resume
+  create: async (resume: Omit<Resume, 'id' | 'createdAt' | 'updatedAt'>): Promise<Resume> => {
+    const firestoreDB = getFirestoreDB();
+    if (!firestoreDB) {
+      throw new Error('Firebase not initialized');
+    }
+
+    const docRef = doc(collection(firestoreDB, 'resumes'));
+    const newResume: Resume = {
+      id: docRef.id,
+      ...resume,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await setDoc(docRef, {
+      ...newResume,
+      createdAt: Timestamp.fromDate(new Date(newResume.createdAt)),
+      updatedAt: Timestamp.fromDate(new Date(newResume.updatedAt)),
+    });
+
+    return newResume;
+  },
+
+  // Update resume
+  update: async (id: string, updates: Partial<Resume>): Promise<void> => {
+    const firestoreDB = getFirestoreDB();
+    if (!firestoreDB) {
+      throw new Error('Firebase not initialized');
+    }
+
+    const docRef = doc(firestoreDB, 'resumes', id);
+    await setDoc(docRef, {
+      ...updates,
+      updatedAt: Timestamp.fromDate(new Date()),
+    }, { merge: true });
+  },
+
+  // Delete resume
+  delete: async (id: string): Promise<void> => {
+    const firestoreDB = getFirestoreDB();
+    if (!firestoreDB) {
+      throw new Error('Firebase not initialized');
+    }
+
+    const docRef = doc(firestoreDB, 'resumes', id);
+    await deleteDoc(docRef);
+  },
+
+  // Subscribe to real-time updates
+  subscribe: (callback: (resumes: Resume[]) => void): (() => void) => {
+    const firestoreDB = getFirestoreDB();
+    if (!firestoreDB) {
+      return () => {};
+    }
+
+    const q = query(
+      collection(firestoreDB, 'resumes'),
+      orderBy('updatedAt', 'desc')
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const resumes: Resume[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const resume: Resume = {
+          id: docSnap.id,
+          title: data.title || '',
+          templateId: data.templateId || '',
+          data: data.data || {},
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString(),
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt || new Date().toISOString(),
+        };
+        resumes.push(resume);
+      });
+      callback(resumes);
+    }, (error) => {
+      console.error('❌ Firebase resumes subscription error:', error);
     });
   },
 };
