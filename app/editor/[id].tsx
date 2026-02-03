@@ -1,7 +1,7 @@
 import { View, StyleSheet, Alert } from 'react-native';
 import { Appbar, Menu, Portal, Dialog, TextInput, Button } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useDocumentStore } from '@/store/documentStore';
 import { MarkdownViewer } from '@/components/MarkdownViewer';
 import { exportToPDF } from '@/services/pdfService';
@@ -17,6 +17,14 @@ export default function EditorScreen() {
   const [isMeetingNotes, setIsMeetingNotes] = useState(false);
 
   const document = documents.find(d => d.id === id);
+
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  }, [router]);
 
   useEffect(() => {
     if (document) {
@@ -83,7 +91,7 @@ export default function EditorScreen() {
   return (
     <View style={styles.container}>
       <Appbar.Header style={styles.header}>
-        <Appbar.BackAction onPress={() => router.back()} iconColor="#ffffff" />
+        <Appbar.BackAction onPress={handleBack} iconColor="#ffffff" />
         <Appbar.Content title={document.title} titleStyle={styles.headerTitle} />
         <Menu
           visible={menuVisible}

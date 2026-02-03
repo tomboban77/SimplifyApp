@@ -1,17 +1,28 @@
 import { View, StyleSheet, FlatList } from 'react-native';
-import { Appbar, Card, FAB, Text, Searchbar, IconButton, Menu, Snackbar } from 'react-native-paper';
+import { Appbar, Card, FAB, Text, Searchbar, IconButton, Menu, Chip, Snackbar } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useDocumentStore } from '@/store/documentStore';
+import { useResumeStore } from '@/store/resumeStore';
+import { usePDFStore } from '@/store/pdfStore';
 import { formatDateSafe } from '@/utils/dateUtils';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
 import { useOffline } from '@/hooks/useOffline';
 import { DocumentSkeleton } from '@/components/SkeletonLoader';
-import { LoadingScreen } from '@/components/LoadingScreen';
+
+type DocumentItem = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  type: 'document' | 'resume' | 'pdf';
+  route: string;
+};
 
 export default function DocumentsScreen() {
   const router = useRouter();
   const { documents, loadDocuments, deleteDocument } = useDocumentStore();
+  const { resumes, loadResumes, deleteResume } = useResumeStore();
+  const { pdfs, loadPDFs, deletePDF } = usePDFStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,7 +35,11 @@ export default function DocumentsScreen() {
     const initialize = async () => {
       try {
         setLoading(true);
-        await loadDocuments();
+        await Promise.all([
+          loadDocuments(),
+          loadResumes(),
+          loadPDFs(),
+        ]);
       } catch (error) {
         handleError(error);
       } finally {
@@ -34,18 +49,67 @@ export default function DocumentsScreen() {
     initialize();
   }, []);
 
-  const filteredDocuments = documents.filter(doc =>
+  // Combine all documents into a single list
+  const allDocuments = useMemo<DocumentItem[]>(() => {
+    const items: DocumentItem[] = [
+      ...documents.map(doc => ({
+        id: doc.id,
+        title: doc.title,
+        updatedAt: doc.updatedAt,
+        type: 'document' as const,
+        route: `/editor/${doc.id}`,
+      })),
+      ...resumes.map(resume => ({
+        id: resume.id,
+        title: resume.title,
+        updatedAt: resume.updatedAt,
+        type: 'resume' as const,
+        route: `/resumes/${resume.id}`,
+      })),
+      ...pdfs.map(pdf => ({
+        id: pdf.id,
+        title: pdf.name,
+        updatedAt: pdf.updatedAt,
+        type: 'pdf' as const,
+        route: `/pdf/${pdf.id}`,
+      })),
+    ];
+
+    // Sort by updated date (newest first)
+    return items.sort((a, b) => 
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  }, [documents, resumes, pdfs]);
+
+  const filteredDocuments = allDocuments.filter(doc =>
     doc.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleDelete = async (id: string, title: string) => {
+  const getTypeConfig = (type: DocumentItem['type']) => {
+    switch (type) {
+      case 'resume':
+        return { label: 'Resume', icon: 'file-account', color: '#1976d2' };
+      case 'pdf':
+        return { label: 'PDF', icon: 'file-pdf-box', color: '#d32f2f' };
+      default:
+        return { label: 'Document', icon: 'file-document', color: '#757575' };
+    }
+  };
+
+  const handleDelete = async (item: DocumentItem) => {
     setMenuVisible(null);
     try {
-      await deleteDocument(id);
-      setSnackbarMessage('Document deleted successfully');
+      if (item.type === 'resume') {
+        await deleteResume(item.id);
+      } else if (item.type === 'pdf') {
+        await deletePDF(item.id);
+      } else {
+        await deleteDocument(item.id);
+      }
+      setSnackbarMessage(`${getTypeConfig(item.type).label} deleted successfully`);
       setSnackbarVisible(true);
     } catch (error) {
-      handleError(error, 'Failed to delete document. Please try again.');
+      handleError(error, `Failed to delete ${getTypeConfig(item.type).label.toLowerCase()}. Please try again.`);
     }
   };
 
@@ -75,7 +139,7 @@ export default function DocumentsScreen() {
       ) : (
         <FlatList
           data={filteredDocuments}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => `${item.type}-${item.id}`}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text variant="bodyLarge" style={styles.emptyText}>
@@ -83,52 +147,63 @@ export default function DocumentsScreen() {
               </Text>
             </View>
           }
-          renderItem={({ item }) => (
-          <Card
-            style={styles.card}
-            onPress={() => router.push(`/editor/${item.id}`)}
-          >
-            <Card.Content style={styles.cardContent}>
-              <View style={styles.cardText}>
-                <Text variant="titleMedium">{item.title}</Text>
-                <Text variant="bodySmall" style={styles.date}>
-                  {formatDateSafe(item.updatedAt)}
-                </Text>
-              </View>
-              <Menu
-                visible={menuVisible === item.id}
-                onDismiss={() => setMenuVisible(null)}
-                anchor={
-                  <IconButton
-                    icon="dots-vertical"
-                    size={20}
-                    onPress={() => setMenuVisible(item.id)}
-                    style={styles.menuButton}
-                  />
-                }
+          renderItem={({ item }) => {
+            const typeConfig = getTypeConfig(item.type);
+            return (
+              <Card
+                style={styles.card}
+                onPress={() => router.push(item.route)}
               >
-                <Menu.Item
-                  onPress={() => router.push(`/editor/${item.id}`)}
-                  title="Open"
-                  leadingIcon="pencil"
-                />
-                <Menu.Item
-                  onPress={() => {
-                    // Show confirmation dialog
-                    const confirmDelete = () => {
-                      handleDelete(item.id, item.title);
-                    };
-                    // For now, directly delete (you can add Alert.alert here if needed)
-                    confirmDelete();
-                  }}
-                  title="Delete"
-                  leadingIcon="delete"
-                  titleStyle={styles.deleteText}
-                />
-              </Menu>
-            </Card.Content>
-          </Card>
-        )}
+                <Card.Content style={styles.cardContent}>
+                  <View style={styles.cardText}>
+                    <Text variant="titleMedium" style={styles.cardTitle}>
+                      {item.title}
+                    </Text>
+                    <View style={styles.cardMeta}>
+                      <Chip
+                        icon={typeConfig.icon}
+                        style={[styles.typeChip, { backgroundColor: `${typeConfig.color}20` }]}
+                        textStyle={[styles.typeChipText, { color: typeConfig.color }]}
+                        mode="flat"
+                      >
+                        {typeConfig.label}
+                      </Chip>
+                      <Text variant="bodySmall" style={styles.date}>
+                        {formatDateSafe(item.updatedAt)}
+                      </Text>
+                    </View>
+                  </View>
+                  <Menu
+                    visible={menuVisible === `${item.type}-${item.id}`}
+                    onDismiss={() => setMenuVisible(null)}
+                    anchor={
+                      <IconButton
+                        icon="dots-vertical"
+                        size={20}
+                        onPress={() => setMenuVisible(`${item.type}-${item.id}`)}
+                        style={styles.menuButton}
+                      />
+                    }
+                  >
+                    <Menu.Item
+                      onPress={() => {
+                        setMenuVisible(null);
+                        router.push(item.route);
+                      }}
+                      title="Open"
+                      leadingIcon="pencil"
+                    />
+                    <Menu.Item
+                      onPress={() => handleDelete(item)}
+                      title="Delete"
+                      leadingIcon="delete"
+                      titleStyle={styles.deleteText}
+                    />
+                  </Menu>
+                </Card.Content>
+              </Card>
+            );
+          }}
           contentContainerStyle={styles.list}
         />
       )}
@@ -155,7 +230,7 @@ export default function DocumentsScreen() {
       <FAB
         icon="plus"
         style={styles.fab}
-        onPress={() => router.push('/create')}
+        onPress={() => router.push('/(tabs)/create')}
       />
     </View>
   );
@@ -187,6 +262,24 @@ const styles = StyleSheet.create({
   cardText: {
     flex: 1,
   },
+  cardTitle: {
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  cardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  typeChip: {
+    height: 28,
+    paddingHorizontal: 4,
+  },
+  typeChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
   menuButton: {
     margin: 0,
   },
@@ -213,4 +306,3 @@ const styles = StyleSheet.create({
     backgroundColor: '#ff9800',
   },
 });
-

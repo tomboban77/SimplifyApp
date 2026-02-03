@@ -1,7 +1,7 @@
 import { View, StyleSheet } from 'react-native';
 import { Appbar, Menu, IconButton } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useResumeStore } from '@/store/resumeStore';
 import { PaginatedResume } from '@/components/resume/PaginatedResume';
 import * as Print from 'expo-print';
@@ -16,11 +16,19 @@ export default function ViewResumeScreen() {
 
   const resume = getResume(id || '');
 
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/resumes');
+    }
+  }, [router]);
+
   if (!resume) {
     return (
       <View style={styles.container}>
         <Appbar.Header>
-          <Appbar.BackAction onPress={() => router.back()} />
+          <Appbar.BackAction onPress={handleBack} />
           <Appbar.Content title="Resume Not Found" />
         </Appbar.Header>
       </View>
@@ -81,7 +89,7 @@ export default function ViewResumeScreen() {
   return (
     <View style={styles.container}>
       <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
+        <Appbar.BackAction onPress={handleBack} />
         <Appbar.Content title={resume.title} />
         <Menu
           visible={menuVisible}

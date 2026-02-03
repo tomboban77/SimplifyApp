@@ -15,25 +15,7 @@ export default function TabsLayout() {
         options={{
           title: 'Documents',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="file-document" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="create"
-        options={{
-          title: 'Create',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="plus-circle" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="pdfs"
-        options={{
-          title: 'PDFs',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="file-pdf-box" size={size} color={color} />
+            <MaterialCommunityIcons name="file-document-multiple" size={size} color={color} />
           ),
         }}
       />
@@ -43,6 +25,15 @@ export default function TabsLayout() {
           title: 'Resumes',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="file-account" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="create"
+        options={{
+          title: 'General',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="folder-plus" size={size} color={color} />
           ),
         }}
       />

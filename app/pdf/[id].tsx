@@ -1,7 +1,7 @@
 import { View, StyleSheet, Alert } from 'react-native';
 import { Appbar, Menu, Portal, Dialog, Button, TextInput } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { usePDFStore } from '@/store/pdfStore';
 import { PDFViewer } from '@/components/PDFViewer';
 import { useAIService } from '@/services/aiService';
@@ -17,6 +17,14 @@ export default function PDFScreen() {
   const [aiResult, setAiResult] = useState('');
 
   const pdf = pdfs.find(p => p.id === id);
+
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/pdfs');
+    }
+  }, [router]);
 
   if (!pdf) {
     return null;
@@ -81,7 +89,7 @@ export default function PDFScreen() {
   return (
     <View style={styles.container}>
       <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
+        <Appbar.BackAction onPress={handleBack} />
         <Appbar.Content title={pdf.name} />
         <Menu
           visible={menuVisible}

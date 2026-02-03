@@ -1,165 +1,142 @@
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Appbar, Card, Button, Text, TextInput, Snackbar } from 'react-native-paper';
+import { Appbar, Card, Text } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { useDocumentStore } from '@/store/documentStore';
-import { useAIService } from '@/services/aiService';
-import { useErrorHandler } from '@/hooks/useErrorHandler';
+import * as DocumentPicker from 'expo-document-picker';
+import { usePDFStore } from '@/store/pdfStore';
 
-export default function CreateScreen() {
+export default function GeneralScreen() {
   const router = useRouter();
-  const { createDocument } = useDocumentStore();
-  const { generateDocument } = useAIService();
-  const [prompt, setPrompt] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [loadingTemplate, setLoadingTemplate] = useState<string | null>(null);
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
-  const handleError = useErrorHandler({ showAlert: false });
+  const { addPDF } = usePDFStore();
+  const [uploading, setUploading] = useState(false);
 
-  const extractTitle = (prompt: string): string => {
-    // Try to extract a title from the prompt
-    const lines = prompt.split('\n').filter(l => l.trim());
-    if (lines.length > 0) {
-      const firstLine = lines[0].trim();
-      // If first line is short and looks like a title, use it
-      if (firstLine.length < 60 && !firstLine.includes('.')) {
-        return firstLine;
-      }
-    }
-    // Otherwise, use first few words of prompt
-    const words = prompt.trim().split(/\s+/).slice(0, 5).join(' ');
-    return words.length > 0 ? words : 'New Document';
+  const handleCreateResume = () => {
+    router.push('/resumes/select-template');
   };
 
-  const handleCreateFromPrompt = async () => {
-    if (!prompt.trim()) return;
-    
-    setLoading(true);
+  const handleCreateCoverLetter = () => {
+    // No action for now - placeholder
+    // TODO: Implement cover letter creation
+  };
+
+  const handleCreateMeetingNotes = () => {
+    router.push('/create/meeting-notes');
+  };
+
+  const handleUploadPDF = async () => {
     try {
-      const content = await generateDocument(prompt);
-      const title = extractTitle(prompt);
-      const doc = await createDocument({
-        title,
-        content,
+      setUploading(true);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
       });
-      router.push(`/editor/${doc.id}`);
-    } catch (error) {
-      handleError(error);
-      setSnackbarMessage('Failed to create document. Please try again.');
-      setSnackbarVisible(true);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleCreateFromTemplate = async (templateName: string, templatePrompt: string) => {
-    setLoadingTemplate(templateName);
-    try {
-      // For Meeting Notes, go to dedicated screen
-      if (templateName === 'Meeting Notes') {
-        router.push('/create/meeting-notes');
-        return;
+      if (!result.canceled && result.assets[0]) {
+        const pdf = await addPDF({
+          name: result.assets[0].name,
+          uri: result.assets[0].uri,
+        });
+        // Navigate to the uploaded PDF
+        router.push(`/pdf/${pdf.id}`);
       }
-      
-      const content = await generateDocument(templatePrompt);
-      const doc = await createDocument({
-        title: templateName,
-        content,
-      });
-      router.push(`/editor/${doc.id}`);
     } catch (error) {
-      console.error('Error creating document:', error);
+      console.error('Error picking PDF:', error);
     } finally {
-      setLoadingTemplate(null);
+      setUploading(false);
     }
   };
 
-  const templates = [
-    { name: 'Meeting Notes', prompt: 'Create a professional meeting notes template' },
-    { name: 'Business Letter', prompt: 'Create a formal business letter template' },
-    { name: 'Resume', prompt: 'Create a professional resume template' },
-    { name: 'Blog Post', prompt: 'Create a blog post template' },
+  const options = [
+    {
+      id: 'resume',
+      title: 'Resume',
+      description: 'Create a professional resume with customizable templates',
+      icon: 'file-account',
+      color: '#1976d2',
+      onPress: handleCreateResume,
+    },
+    {
+      id: 'cover-letter',
+      title: 'Cover Letter',
+      description: 'Coming soon - Create professional cover letters',
+      icon: 'file-document-edit',
+      color: '#2e7d32',
+      onPress: handleCreateCoverLetter,
+      disabled: true,
+    },
+    {
+      id: 'meeting-notes',
+      title: 'Meeting Notes',
+      description: 'Create structured meeting notes with action items',
+      icon: 'calendar-text',
+      color: '#ed6c02',
+      onPress: handleCreateMeetingNotes,
+    },
+    {
+      id: 'pdf',
+      title: 'Upload PDF',
+      description: 'Upload and annotate PDF documents',
+      icon: 'file-pdf-box',
+      color: '#d32f2f',
+      onPress: handleUploadPDF,
+    },
   ];
 
   return (
     <View style={styles.container}>
       <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Create Document" />
+        <Appbar.Content title="General" />
       </Appbar.Header>
 
-      <ScrollView style={styles.content}>
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleLarge" style={styles.sectionTitle}>
-              AI Prompt
-            </Text>
-            <TextInput
-              label="Describe what you want to create"
-              value={prompt}
-              onChangeText={setPrompt}
-              multiline
-              numberOfLines={4}
-              mode="outlined"
-              style={styles.input}
-            />
-            <Button
-              mode="contained"
-              onPress={handleCreateFromPrompt}
-              loading={loading}
-              disabled={loading || !prompt.trim()}
-              style={styles.button}
-            >
-              Generate Document
-            </Button>
-          </Card.Content>
-        </Card>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        <Text variant="headlineSmall" style={styles.title}>
+          Create New
+        </Text>
+        <Text variant="bodyMedium" style={styles.subtitle}>
+          Choose what you'd like to create
+        </Text>
 
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleLarge" style={styles.sectionTitle}>
-              Templates
-            </Text>
-            {templates.map((template) => (
-              <Button
-                key={template.name}
-                mode="outlined"
-                onPress={() => handleCreateFromTemplate(template.name, template.prompt)}
-                loading={loadingTemplate === template.name}
-                disabled={loadingTemplate !== null}
-                style={styles.templateButton}
-              >
-                {template.name}
-              </Button>
-            ))}
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleLarge" style={styles.sectionTitle}>
-              Voice Input
-            </Text>
-            <Button
-              mode="outlined"
-              icon="microphone"
-              onPress={() => router.push('/create/voice')}
-              style={styles.button}
-            >
-              Start Recording
-            </Button>
-          </Card.Content>
-        </Card>
+        {options.map((option) => (
+          <Card
+            key={option.id}
+            style={[
+              styles.optionCard,
+              option.disabled && styles.optionCardDisabled,
+            ]}
+            onPress={option.disabled ? undefined : option.onPress}
+            mode="elevated"
+          >
+            <Card.Content style={styles.cardContent}>
+              <View style={[styles.iconContainer, { backgroundColor: `${option.color}15` }]}>
+                <Text style={[styles.icon, { color: option.color }]}>
+                  {option.id === 'resume' && '📄'}
+                  {option.id === 'cover-letter' && '✉️'}
+                  {option.id === 'meeting-notes' && '📝'}
+                  {option.id === 'pdf' && '📑'}
+                </Text>
+              </View>
+              <View style={styles.textContainer}>
+                <Text variant="titleMedium" style={styles.optionTitle}>
+                  {option.title}
+                </Text>
+                <Text variant="bodySmall" style={styles.optionDescription}>
+                  {option.description}
+                </Text>
+              </View>
+              {option.disabled && (
+                <View style={styles.comingSoonBadge}>
+                  <Text style={styles.comingSoonText}>Soon</Text>
+                </View>
+              )}
+              {option.id === 'pdf' && uploading && (
+                <View style={styles.uploadingBadge}>
+                  <Text style={styles.uploadingText}>Uploading...</Text>
+                </View>
+              )}
+            </Card.Content>
+          </Card>
+        ))}
       </ScrollView>
-
-      <Snackbar
-        visible={snackbarVisible}
-        onDismiss={() => setSnackbarVisible(false)}
-        duration={3000}
-      >
-        {snackbarMessage}
-      </Snackbar>
     </View>
   );
 }
@@ -171,22 +148,74 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  contentContainer: {
     padding: 16,
   },
-  card: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    marginBottom: 16,
-  },
-  input: {
-    marginBottom: 16,
-  },
-  button: {
-    marginTop: 8,
-  },
-  templateButton: {
+  title: {
+    fontWeight: '600',
     marginBottom: 8,
   },
+  subtitle: {
+    color: '#757575',
+    marginBottom: 24,
+  },
+  optionCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+  },
+  optionCardDisabled: {
+    opacity: 0.6,
+  },
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  iconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  icon: {
+    fontSize: 28,
+  },
+  textContainer: {
+    flex: 1,
+  },
+  optionTitle: {
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  optionDescription: {
+    color: '#757575',
+    lineHeight: 20,
+  },
+  comingSoonBadge: {
+    backgroundColor: '#ff9800',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  comingSoonText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  uploadingBadge: {
+    backgroundColor: '#1976d2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  uploadingText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
 });
-
