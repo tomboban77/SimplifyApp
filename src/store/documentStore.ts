@@ -1,0 +1,147 @@
+import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Document } from '@/types';
+import { documentsService } from '@/services/firebaseService';
+
+interface DocumentState {
+  documents: Document[];
+  isFirebaseEnabled: boolean;
+  unsubscribeFirebase: (() => void) | null;
+  loadDocuments: () => Promise<void>;
+  createDocument: (doc: Omit<Document, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Document>;
+  updateDocument: (id: string, updates: Partial<Document>) => Promise<void>;
+  deleteDocument: (id: string) => Promise<void>;
+  enableFirebase: () => void;
+  disableFirebase: () => void;
+}
+
+const STORAGE_KEY = '@documents';
+
+export const useDocumentStore = create<DocumentState>((set, get) => ({
+  documents: [],
+  isFirebaseEnabled: false,
+  unsubscribeFirebase: null,
+
+  enableFirebase: () => {
+    const { unsubscribeFirebase } = get();
+    if (unsubscribeFirebase) {
+      unsubscribeFirebase(); // Clean up existing subscription
+    }
+
+    const unsubscribe = documentsService.subscribe((firebaseDocuments) => {
+      set({ documents: firebaseDocuments });
+      // Also sync to local storage for offline access
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(firebaseDocuments));
+    });
+
+    set({ isFirebaseEnabled: true, unsubscribeFirebase: unsubscribe });
+  },
+
+  disableFirebase: () => {
+    const { unsubscribeFirebase } = get();
+    if (unsubscribeFirebase) {
+      unsubscribeFirebase();
+    }
+    set({ isFirebaseEnabled: false, unsubscribeFirebase: null });
+    get().loadDocuments();
+  },
+
+  loadDocuments: async () => {
+    try {
+      // If Firebase is enabled, subscription will handle updates
+      if (get().isFirebaseEnabled) {
+        return;
+      }
+
+      // Otherwise load from local storage
+      const data = await AsyncStorage.getItem(STORAGE_KEY);
+      if (data) {
+        set({ documents: JSON.parse(data) });
+      }
+    } catch (error) {
+      console.error('Error loading documents:', error);
+    }
+  },
+
+  createDocument: async (doc) => {
+    const { isFirebaseEnabled } = get();
+    
+    // Try Firebase first if enabled
+    if (isFirebaseEnabled) {
+      try {
+        const result = await documentsService.create(doc);
+        return result;
+      } catch (error: any) {
+        console.error('❌ Firebase create failed, using local storage:', error);
+        // Fall through to local storage
+      }
+    }
+
+    // Local storage fallback
+    const newDoc: Document = {
+      ...doc,
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const documents = [...get().documents, newDoc];
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
+      set({ documents });
+    } catch (storageError) {
+      console.error('Error saving to local storage:', storageError);
+      set({ documents });
+    }
+    return newDoc;
+  },
+
+  updateDocument: async (id, updates) => {
+    const { isFirebaseEnabled } = get();
+    
+    // Try Firebase first if enabled
+    if (isFirebaseEnabled) {
+      try {
+        await documentsService.update(id, updates);
+        return; // Firebase subscription will update state
+      } catch (error: any) {
+        console.error('❌ Firebase update failed, using local storage:', error);
+        // Fall through to local storage
+      }
+    }
+
+    // Local storage fallback
+    const documents = get().documents.map(doc =>
+      doc.id === id
+        ? { ...doc, ...updates, updatedAt: new Date().toISOString() }
+        : doc
+    );
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
+      set({ documents });
+    } catch (storageError) {
+      console.error('Error saving to local storage:', storageError);
+      set({ documents });
+    }
+  },
+
+  deleteDocument: async (id) => {
+    const { isFirebaseEnabled } = get();
+    
+    // Try Firebase first if enabled
+    if (isFirebaseEnabled) {
+      try {
+        await documentsService.delete(id);
+        return; // Firebase subscription will update state
+      } catch (error: any) {
+        console.error('❌ Firebase delete failed, using local storage:', error);
+        // Fall through to local storage
+      }
+    }
+
+    // Local storage fallback
+    const documents = get().documents.filter(doc => doc.id !== id);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
+    set({ documents });
+  },
+}));
