@@ -98,7 +98,7 @@ export interface ResumeTemplate {
   roles: string[];
   isActive: boolean;
   order: number;
-  schema: TemplateSchema; // The template schema for rendering
+  // No schema - templates are actual component files
   createdAt: string;
   updatedAt: string;
 }

@@ -1,13 +1,7 @@
 import { ResumeData } from '@/types';
-import { TemplateRenderer } from './TemplateRenderer';
 import { useTemplateStore } from '@/store/templateStore';
 import { View, Text, StyleSheet } from 'react-native';
-// Fallback to old templates if schema is missing (temporary during migration)
-import { Template1 } from './Template1';
-import { Template2 } from './Template2';
-import { Template3 } from './Template3';
-import { Template4 } from './Template4';
-import { Template5 } from './Template5';
+import { getTemplateComponent } from './templateRegistry';
 
 interface ResumeTemplateProps {
   templateId: string;
@@ -17,14 +11,19 @@ interface ResumeTemplateProps {
 /**
  * ResumeTemplate Component
  * 
- * Dynamically renders resume templates based on schema from Firebase.
- * Falls back to old templates if schema is missing (during migration period).
+ * Renders resume templates by mapping templateId to actual component files.
+ * Templates are stored as component files, not schemas, ensuring exact style matching.
+ * 
+ * To add new templates:
+ * 1. Create Template6.tsx, Template7.tsx, etc. in this directory
+ * 2. Add them to templateRegistry.tsx
+ * 3. Seed metadata to Firebase (no UI code needed)
  */
 export function ResumeTemplate({ templateId, data }: ResumeTemplateProps) {
   const { getTemplate } = useTemplateStore();
   const template = getTemplate(templateId);
   
-  // If template not found, show error
+  // Check if template exists in Firebase metadata
   if (!template) {
     console.warn(`Template "${templateId}" not found in store.`);
     return (
@@ -34,27 +33,21 @@ export function ResumeTemplate({ templateId, data }: ResumeTemplateProps) {
     );
   }
   
-  // If schema exists, use new TemplateRenderer
-  if (template.schema) {
-    return <TemplateRenderer schema={template.schema} data={data} />;
+  // Get the actual component from registry
+  const TemplateComponent = getTemplateComponent(templateId);
+  
+  if (!TemplateComponent) {
+    console.warn(`Template component "${templateId}" not found in registry.`);
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Template component not available: {templateId}</Text>
+        <Text style={styles.errorHint}>Please ensure the template component file exists.</Text>
+      </View>
+    );
   }
   
-  // Fallback to old templates if schema is missing (temporary during migration)
-  console.warn(`Template "${templateId}" has no schema. Using fallback template.`);
-  switch (templateId) {
-    case 'template1':
-      return <Template1 data={data} />;
-    case 'template2':
-      return <Template2 data={data} />;
-    case 'template3':
-      return <Template3 data={data} />;
-    case 'template4':
-      return <Template4 data={data} />;
-    case 'template5':
-      return <Template5 data={data} />;
-    default:
-      return <Template1 data={data} />;
-  }
+  // Render the actual component directly
+  return <TemplateComponent data={data} />;
 }
 
 const styles = StyleSheet.create({
@@ -69,6 +62,13 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#d32f2f',
     fontSize: 14,
+    marginBottom: 8,
+  },
+  errorHint: {
+    color: '#666666',
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
 

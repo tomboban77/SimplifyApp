@@ -21,9 +21,8 @@ const envPath = resolve(process.cwd(), '.env');
 config({ path: envPath });
 
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, collection, doc, setDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, getDocs, query, where, Timestamp, deleteField } from 'firebase/firestore';
 import { ResumeTemplate } from '../src/types';
-import { templateSchemas } from '../src/schemas/templateSchemas';
 
 // Firebase configuration - all values must come from environment variables
 const firebaseConfig = {
@@ -35,7 +34,8 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Default templates to seed with schemas
+// Default templates to seed - only metadata, no UI code
+// UI code is stored as component files in src/components/resume/templates/
 const defaultTemplates: Omit<ResumeTemplate, 'createdAt' | 'updatedAt'>[] = [
   {
     id: 'template1',
@@ -46,7 +46,6 @@ const defaultTemplates: Omit<ResumeTemplate, 'createdAt' | 'updatedAt'>[] = [
     roles: ['Entry Level', 'Mid Level', 'Senior Level', 'Manager', 'Director'],
     isActive: true,
     order: 1,
-    schema: templateSchemas.template1,
   },
   {
     id: 'template2',
@@ -57,7 +56,6 @@ const defaultTemplates: Omit<ResumeTemplate, 'createdAt' | 'updatedAt'>[] = [
     roles: ['Senior Level', 'Executive', 'Manager', 'Director'],
     isActive: true,
     order: 2,
-    schema: templateSchemas.template2,
   },
   {
     id: 'template3',
@@ -68,7 +66,6 @@ const defaultTemplates: Omit<ResumeTemplate, 'createdAt' | 'updatedAt'>[] = [
     roles: ['Entry Level', 'Mid Level', 'Senior Level', 'Freelancer'],
     isActive: true,
     order: 3,
-    schema: templateSchemas.template3,
   },
   {
     id: 'template4',
@@ -79,7 +76,6 @@ const defaultTemplates: Omit<ResumeTemplate, 'createdAt' | 'updatedAt'>[] = [
     roles: ['Mid Level', 'Senior Level', 'Manager', 'Director', 'Executive'],
     isActive: true,
     order: 4,
-    schema: templateSchemas.template4,
   },
   {
     id: 'template5',
@@ -90,7 +86,6 @@ const defaultTemplates: Omit<ResumeTemplate, 'createdAt' | 'updatedAt'>[] = [
     roles: ['Entry Level', 'Mid Level', 'Senior Level', 'Freelancer'],
     isActive: true,
     order: 5,
-    schema: templateSchemas.template5,
   },
 ];
 
@@ -152,16 +147,17 @@ async function seedTemplates() {
         const existing = existingTemplates.docs.find(doc => doc.id === template.id);
         
         if (existing) {
-          // Update existing template (preserve original createdAt)
+          // Update existing template (preserve original createdAt, remove schema field)
           const existingData = existing.data();
           const existingCreatedAt = existingData.createdAt?.toDate?.()?.toISOString() || existingData.createdAt || now;
           
           await setDoc(templateRef, {
             ...template,
+            schema: deleteField(), // Explicitly remove schema field
             createdAt: Timestamp.fromDate(new Date(existingCreatedAt)),
             updatedAt: Timestamp.fromDate(new Date()),
           }, { merge: true });
-          console.log(`   ✏️  Updated: ${template.name} (${template.id})`);
+          console.log(`   ✏️  Updated: ${template.name} (${template.id}) - removed schema field`);
           updateCount++;
         } else {
           // Create new template
