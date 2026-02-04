@@ -9,7 +9,7 @@ export interface Document {
 export interface Resume {
   id: string;
   title: string;
-  templateId: string; // 'template1' | 'template2' | 'template3' | 'template4' | 'template5'
+  templateId: string; // Dynamic template ID from Firebase (e.g., 'template1', 'template2', etc.)
   data: ResumeData;
   createdAt: string;
   updatedAt: string;
@@ -96,6 +96,10 @@ export interface ResumeData {
   }>;
 }
 
+// Import schema types
+export type { TemplateSchema, SectionType, LayoutType } from './templateSchema';
+import { TemplateSchema } from './templateSchema';
+
 export interface ResumeTemplate {
   id: string;
   name: string;
@@ -105,6 +109,7 @@ export interface ResumeTemplate {
   roles: string[];
   isActive: boolean;
   order: number;
+  schema: TemplateSchema | null; // Template schema for dynamic rendering (null for backward compatibility)
   createdAt: string;
   updatedAt: string;
 }

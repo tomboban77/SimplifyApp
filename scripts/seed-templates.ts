@@ -11,9 +11,19 @@
  *   ts-node scripts/seed-templates.ts
  */
 
+// Load environment variables from .env file
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+// Try to load .env file from project root (relative to script location)
+// This works for tsx which runs in Node.js context
+const envPath = resolve(process.cwd(), '.env');
+config({ path: envPath });
+
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, collection, doc, setDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { ResumeTemplate } from '../src/types';
+import { templateSchemas } from '../src/schemas/templateSchemas';
 
 // Firebase configuration - all values must come from environment variables
 const firebaseConfig = {
@@ -25,7 +35,7 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Default templates to seed
+// Default templates to seed with schemas
 const defaultTemplates: Omit<ResumeTemplate, 'createdAt' | 'updatedAt'>[] = [
   {
     id: 'template1',
@@ -36,6 +46,7 @@ const defaultTemplates: Omit<ResumeTemplate, 'createdAt' | 'updatedAt'>[] = [
     roles: ['Entry Level', 'Mid Level', 'Senior Level', 'Manager', 'Director'],
     isActive: true,
     order: 1,
+    schema: templateSchemas.template1,
   },
   {
     id: 'template2',
@@ -46,6 +57,7 @@ const defaultTemplates: Omit<ResumeTemplate, 'createdAt' | 'updatedAt'>[] = [
     roles: ['Senior Level', 'Executive', 'Manager', 'Director'],
     isActive: true,
     order: 2,
+    schema: templateSchemas.template2,
   },
   {
     id: 'template3',
@@ -56,6 +68,7 @@ const defaultTemplates: Omit<ResumeTemplate, 'createdAt' | 'updatedAt'>[] = [
     roles: ['Entry Level', 'Mid Level', 'Senior Level', 'Freelancer'],
     isActive: true,
     order: 3,
+    schema: templateSchemas.template3,
   },
   {
     id: 'template4',
@@ -66,6 +79,7 @@ const defaultTemplates: Omit<ResumeTemplate, 'createdAt' | 'updatedAt'>[] = [
     roles: ['Mid Level', 'Senior Level', 'Manager', 'Director', 'Executive'],
     isActive: true,
     order: 4,
+    schema: templateSchemas.template4,
   },
   {
     id: 'template5',
@@ -76,6 +90,7 @@ const defaultTemplates: Omit<ResumeTemplate, 'createdAt' | 'updatedAt'>[] = [
     roles: ['Entry Level', 'Mid Level', 'Senior Level', 'Freelancer'],
     isActive: true,
     order: 5,
+    schema: templateSchemas.template5,
   },
 ];
 

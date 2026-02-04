@@ -346,6 +346,7 @@ export const templatesService = {
           roles: data.roles || [],
           isActive: data.isActive !== false,
           order: data.order || 0,
+          schema: data.schema || null, // Include schema from Firebase
           createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString(),
           updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt || new Date().toISOString(),
         };
