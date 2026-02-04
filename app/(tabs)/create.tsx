@@ -11,7 +11,7 @@ export default function GeneralScreen() {
   const [uploading, setUploading] = useState(false);
 
   const handleCreateResume = () => {
-    router.push('/resumes/select-template');
+    router.push('/resumes/questionnaire');
   };
 
   const handleCreateCoverLetter = () => {

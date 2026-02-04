@@ -6,6 +6,7 @@ import { testFirebaseConnection } from '@/services/firebaseService';
 import { useDocumentStore } from '@/store/documentStore';
 import { usePDFStore } from '@/store/pdfStore';
 import { useResumeStore } from '@/store/resumeStore';
+import { useTemplateStore } from '@/store/templateStore';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -13,6 +14,7 @@ export default function SettingsScreen() {
   const { isFirebaseEnabled, enableFirebase, disableFirebase } = useDocumentStore();
   const { enableFirebase: enablePDFFirebase, disableFirebase: disablePDFFirebase } = usePDFStore();
   const { enableFirebase: enableResumeFirebase, disableFirebase: disableResumeFirebase } = useResumeStore();
+  const { enableFirebase: enableTemplateFirebase, disableFirebase: disableTemplateFirebase } = useTemplateStore();
 
   const handleTestConnection = async () => {
     setTesting(true);
@@ -56,7 +58,7 @@ export default function SettingsScreen() {
               Real-time Sync
             </Text>
             <Text variant="bodyMedium" style={styles.description}>
-              Enable Firebase to sync your documents, resumes, and PDFs to the cloud. Your data will be backed up and synced across devices.
+              Enable Firebase to sync your documents, resumes, PDFs, and templates to the cloud. Your data will be backed up and synced across devices.
             </Text>
             <View style={styles.switchRow}>
               <Text variant="bodyLarge">Enable Firebase Sync</Text>
@@ -67,11 +69,13 @@ export default function SettingsScreen() {
                     enableFirebase();
                     enablePDFFirebase();
                     enableResumeFirebase();
-                    Alert.alert('✅ Enabled', 'Firebase sync is now active. Your documents, resumes, and PDFs will be saved to the cloud.');
+                    enableTemplateFirebase();
+                    Alert.alert('✅ Enabled', 'Firebase sync is now active. Your documents, resumes, PDFs, and templates will be saved to the cloud.');
                   } else {
                     disableFirebase();
                     disablePDFFirebase();
                     disableResumeFirebase();
+                    disableTemplateFirebase();
                     Alert.alert('ℹ️ Disabled', 'Firebase sync disabled. Using local storage only.');
                   }
                 }}

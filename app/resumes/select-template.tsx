@@ -1,57 +1,65 @@
 import { View, StyleSheet, ScrollView, Dimensions, Animated } from 'react-native';
-import { Appbar, Card, Text, Button, Surface, TextInput, Dialog, Portal } from 'react-native-paper';
-import { useRouter } from 'expo-router';
-import { useState, useEffect, useRef } from 'react';
+import { Appbar, Card, Text, Button, Surface, TextInput, Dialog, Portal, Chip, ActivityIndicator } from 'react-native-paper';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useResumeStore } from '@/store/resumeStore';
+import { useTemplateStore } from '@/store/templateStore';
 import { TemplatePreview } from '@/components/resume/TemplatePreview';
 
 const { width } = Dimensions.get('window');
 const cardWidth = width - 24; // Wider cards with less margin
 
-const templates = [
-  {
-    id: 'template1',
-    name: 'Classic Professional',
-    description: 'Traditional single-column layout trusted by Fortune 500 recruiters. Clean black typography, ATS-optimized.',
-    badge: 'Most Popular',
-  },
-  {
-    id: 'template2',
-    name: 'Modern Executive',
-    description: 'Sophisticated navy blue design for senior professionals. Bold header with elegant section styling.',
-    badge: 'Executive',
-  },
-  {
-    id: 'template3',
-    name: 'Minimalist',
-    description: 'Ultra-clean design with elegant whitespace. Perfect for letting your content speak for itself.',
-    badge: null,
-  },
-  {
-    id: 'template4',
-    name: 'Corporate',
-    description: 'Classic authoritative layout ideal for law, finance, consulting, and corporate positions.',
-    badge: null,
-  },
-  {
-    id: 'template5',
-    name: 'Bold Professional',
-    description: 'Eye-catching design with red accent header. Modern section styling with subtle backgrounds.',
-    badge: 'Creative',
-  },
-];
-
 export default function SelectTemplateScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ industry?: string; role?: string }>();
   const { addResume } = useResumeStore();
+  const { templates, loadTemplates, isLoading } = useTemplateStore();
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [nameDialogVisible, setNameDialogVisible] = useState(false);
   const [resumeName, setResumeName] = useState('');
 
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  // Filter templates based on questionnaire answers
+  const { recommendedTemplates, otherTemplates, allTemplates } = useMemo(() => {
+    if (!params.industry && !params.role) {
+      // No filters - show all templates
+      return { recommendedTemplates: templates, otherTemplates: [], allTemplates: templates };
+    }
+
+    const recommended: TemplateMetadata[] = [];
+    const other: TemplateMetadata[] = [];
+
+    templates.forEach((template) => {
+      const matchesIndustry = !params.industry || template.industries.some(
+        ind => ind.toLowerCase() === params.industry!.toLowerCase()
+      );
+      const matchesRole = !params.role || template.roles.some(
+        r => r.toLowerCase() === params.role!.toLowerCase()
+      );
+
+      if (matchesIndustry && matchesRole) {
+        recommended.push(template);
+      } else if (matchesIndustry || matchesRole) {
+        other.push(template);
+      } else {
+        other.push(template);
+      }
+    });
+
+    return { 
+      recommendedTemplates: recommended, 
+      otherTemplates: other,
+      allTemplates: [...recommended, ...other]
+    };
+  }, [params.industry, params.role, templates]);
+
   const handleContinue = () => {
     if (selectedTemplate) {
-      const defaultName = templates.find(t => t.id === selectedTemplate)?.name || 'Resume';
+      const defaultName = allTemplates.find(t => t.id === selectedTemplate)?.name || 'Resume';
       setResumeName(`My Resume - ${defaultName}`);
       setNameDialogVisible(true);
     }
@@ -64,7 +72,7 @@ export default function SelectTemplateScreen() {
     setLoading(true);
     try {
       const newResume = await addResume({
-        title: resumeName.trim() || `My Resume - ${templates.find(t => t.id === selectedTemplate)?.name}`,
+        title: resumeName.trim() || `My Resume - ${allTemplates.find(t => t.id === selectedTemplate)?.name}`,
         templateId: selectedTemplate,
         data: {
           personalInfo: {
@@ -97,16 +105,146 @@ export default function SelectTemplateScreen() {
         <Appbar.Content title="Choose Template" />
       </Appbar.Header>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Text variant="headlineSmall" style={styles.title}>
-          Select a Template
-        </Text>
-        <Text variant="bodyMedium" style={styles.subtitle}>
-          All templates are ATS-friendly and professionally designed
-        </Text>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" />
+          <Text style={styles.loadingText}>Loading templates...</Text>
+        </View>
+      ) : templates.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <Text variant="titleLarge" style={styles.emptyTitle}>No Templates Available</Text>
+          <Text style={styles.emptyText}>
+            Templates need to be configured in Firebase.{'\n'}
+            Please ensure Firebase is properly configured and templates are seeded.
+          </Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+          <Text variant="headlineSmall" style={styles.title}>
+            {params.industry || params.role ? 'Recommended Templates' : 'Select a Template'}
+          </Text>
+          <Text variant="bodyMedium" style={styles.subtitle}>
+            {params.industry || params.role 
+              ? `Templates best suited for ${params.role ? params.role : ''}${params.industry && params.role ? ' in ' : ''}${params.industry ? params.industry : ''}`
+              : 'All templates are ATS-friendly and professionally designed'
+            }
+          </Text>
 
-        <View style={styles.templatesList}>
-          {templates.map((template) => (
+        {(!params.industry && !params.role) && (
+          <View style={styles.templatesList}>
+            {allTemplates.map((template) => (
+              <Card
+                key={template.id}
+                style={[
+                  styles.templateCard,
+                  { width: cardWidth },
+                  selectedTemplate === template.id && styles.selectedCard,
+                ]}
+                onPress={() => setSelectedTemplate(template.id)}
+                mode="outlined"
+              >
+                <Card.Content style={styles.cardContent}>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.cardHeaderLeft}>
+                      <View style={styles.nameRow}>
+                        <Text variant="titleLarge" style={styles.templateName}>
+                          {template.name}
+                        </Text>
+                        {template.badge && (
+                          <View style={styles.badge}>
+                            <Text style={styles.badgeText}>{template.badge}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text variant="bodyMedium" style={styles.templateDescription}>
+                        {template.description}
+                      </Text>
+                    </View>
+                    {selectedTemplate === template.id && (
+                      <View style={styles.checkmark}>
+                        <Text style={styles.checkmarkText}>✓</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.previewContainer}>
+                    <TemplatePreview templateId={template.id} />
+                  </View>
+                </Card.Content>
+              </Card>
+            ))}
+          </View>
+        )}
+
+        {(params.industry || params.role) && recommendedTemplates.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                Recommended for You
+              </Text>
+              <Chip icon="star" style={styles.recommendedChip} textStyle={styles.recommendedChipText}>
+                {recommendedTemplates.length} {recommendedTemplates.length === 1 ? 'template' : 'templates'}
+              </Chip>
+            </View>
+            <View style={styles.templatesList}>
+              {recommendedTemplates.map((template) => (
+                <Card
+                  key={template.id}
+                  style={[
+                    styles.templateCard,
+                    { width: cardWidth },
+                    selectedTemplate === template.id && styles.selectedCard,
+                    styles.recommendedCard,
+                  ]}
+                  onPress={() => setSelectedTemplate(template.id)}
+                  mode="outlined"
+                >
+                  <Card.Content style={styles.cardContent}>
+                    <View style={styles.cardHeader}>
+                      <View style={styles.cardHeaderLeft}>
+                        <View style={styles.nameRow}>
+                          <Text variant="titleLarge" style={styles.templateName}>
+                            {template.name}
+                          </Text>
+                          {template.badge && (
+                            <View style={styles.badge}>
+                              <Text style={styles.badgeText}>{template.badge}</Text>
+                            </View>
+                          )}
+                          <View style={styles.recommendedBadge}>
+                            <Text style={styles.recommendedBadgeText}>Recommended</Text>
+                          </View>
+                        </View>
+                        <Text variant="bodyMedium" style={styles.templateDescription}>
+                          {template.description}
+                        </Text>
+                      </View>
+                      {selectedTemplate === template.id && (
+                        <View style={styles.checkmark}>
+                          <Text style={styles.checkmarkText}>✓</Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.previewContainer}>
+                      <TemplatePreview templateId={template.id} />
+                    </View>
+                  </Card.Content>
+                </Card>
+              ))}
+            </View>
+          </>
+        )}
+
+        {otherTemplates.length > 0 && (
+          <>
+            {(params.industry || params.role) && (
+              <View style={styles.sectionHeader}>
+                <Text variant="titleMedium" style={styles.sectionTitle}>
+                  Other Templates
+                </Text>
+              </View>
+            )}
+            <View style={styles.templatesList}>
+              {otherTemplates.map((template) => (
             <Card
               key={template.id}
               style={[
@@ -145,9 +283,12 @@ export default function SelectTemplateScreen() {
                 </View>
               </Card.Content>
             </Card>
-          ))}
-        </View>
-      </ScrollView>
+              ))}
+            </View>
+          </>
+        )}
+        </ScrollView>
+      )}
 
       {/* Sticky Footer */}
       <View style={styles.stickyFooter}>
@@ -161,7 +302,7 @@ export default function SelectTemplateScreen() {
           labelStyle={styles.continueButtonLabel}
         >
           {selectedTemplate 
-            ? `Continue with ${templates.find(t => t.id === selectedTemplate)?.name}`
+            ? `Continue with ${allTemplates.find(t => t.id === selectedTemplate)?.name || 'Template'}`
             : 'Select a Template'
           }
         </Button>
@@ -332,5 +473,66 @@ const styles = StyleSheet.create({
   continueButtonLabel: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  loadingText: {
+    marginTop: 16,
+    color: '#666666',
+    fontSize: 16,
+  },
+  emptyTitle: {
+    marginBottom: 12,
+    textAlign: 'center',
+    color: '#1a1a1a',
+  },
+  emptyText: {
+    color: '#666666',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  sectionTitle: {
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  recommendedChip: {
+    backgroundColor: '#fff3e0',
+    height: 28,
+  },
+  recommendedChipText: {
+    color: '#e65100',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  recommendedCard: {
+    borderColor: '#ff9800',
+    borderWidth: 1,
+  },
+  recommendedBadge: {
+    backgroundColor: '#ff9800',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 6,
+  },
+  recommendedBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#ffffff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });

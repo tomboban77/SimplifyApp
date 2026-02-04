@@ -1,15 +1,15 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore, collection, doc, setDoc, deleteDoc, getDocs, query, orderBy, Timestamp, onSnapshot } from 'firebase/firestore';
-import { Document, PDF, Resume } from '@/types';
+import { Document, PDF, Resume, ResumeTemplate } from '@/types';
 
-// Firebase configuration
+// Firebase configuration - all values must come from environment variables
 const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyBZWyv3_Ilrrq8YfmQkMwlX0xiKUealCcU",
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "simplifyapp-d15b4.firebaseapp.com",
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "simplifyapp-d15b4",
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || "simplifyapp-d15b4.firebasestorage.app",
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "507784101632",
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || "1:507784101632:web:76e81fdc6c678b5457bde5"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
 let app: FirebaseApp | null = null;
@@ -21,14 +21,34 @@ let db: Firestore | null = null;
  */
 export const initializeFirebase = (): Firestore | null => {
   try {
-    // Check if config is valid
-    if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'your-api-key') {
-      console.error('❌ Firebase not configured - API key missing');
+    // Check if all required config values are present
+    if (!firebaseConfig.apiKey) {
+      console.error('❌ Firebase not configured - EXPO_PUBLIC_FIREBASE_API_KEY missing');
       return null;
     }
 
-    if (!firebaseConfig.projectId || firebaseConfig.projectId === 'your-project-id') {
-      console.error('❌ Firebase not configured - Project ID missing');
+    if (!firebaseConfig.projectId) {
+      console.error('❌ Firebase not configured - EXPO_PUBLIC_FIREBASE_PROJECT_ID missing');
+      return null;
+    }
+
+    if (!firebaseConfig.authDomain) {
+      console.error('❌ Firebase not configured - EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN missing');
+      return null;
+    }
+
+    if (!firebaseConfig.storageBucket) {
+      console.error('❌ Firebase not configured - EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET missing');
+      return null;
+    }
+
+    if (!firebaseConfig.messagingSenderId) {
+      console.error('❌ Firebase not configured - EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID missing');
+      return null;
+    }
+
+    if (!firebaseConfig.appId) {
+      console.error('❌ Firebase not configured - EXPO_PUBLIC_FIREBASE_APP_ID missing');
       return null;
     }
 
@@ -346,6 +366,84 @@ export const resumesService = {
       callback(resumes);
     }, (error) => {
       console.error('❌ Firebase resumes subscription error:', error);
+    });
+  },
+};
+
+// Templates Service for Firebase
+export const templatesService = {
+  // Get all active templates
+  getAll: async (): Promise<ResumeTemplate[]> => {
+    const firestoreDB = getFirestoreDB();
+    if (!firestoreDB) {
+      throw new Error('Firebase not initialized');
+    }
+
+    // Fetch all templates and filter/sort in memory to avoid composite index requirement
+    const q = query(collection(firestoreDB, 'templates'));
+
+    const snapshot = await getDocs(q);
+    const templates: ResumeTemplate[] = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      const template: ResumeTemplate = {
+        id: docSnap.id,
+        name: data.name || '',
+        description: data.description || '',
+        badge: data.badge || null,
+        industries: data.industries || [],
+        roles: data.roles || [],
+        isActive: data.isActive !== false,
+        order: data.order || 0,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString(),
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt || new Date().toISOString(),
+      };
+      templates.push(template);
+    });
+    
+    // Filter active templates and sort by order
+    return templates
+      .filter(t => t.isActive)
+      .sort((a, b) => a.order - b.order);
+  },
+
+  // Subscribe to real-time updates
+  subscribe: (callback: (templates: ResumeTemplate[]) => void): (() => void) => {
+    const firestoreDB = getFirestoreDB();
+    if (!firestoreDB) {
+      return () => {};
+    }
+
+    // Fetch all templates and filter/sort in memory to avoid composite index requirement
+    const q = query(collection(firestoreDB, 'templates'));
+
+    return onSnapshot(q, (snapshot) => {
+      const templates: ResumeTemplate[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const template: ResumeTemplate = {
+          id: docSnap.id,
+          name: data.name || '',
+          description: data.description || '',
+          badge: data.badge || null,
+          industries: data.industries || [],
+          roles: data.roles || [],
+          isActive: data.isActive !== false,
+          order: data.order || 0,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString(),
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt || new Date().toISOString(),
+        };
+        templates.push(template);
+      });
+      
+      // Filter active templates and sort by order
+      const activeTemplates = templates
+        .filter(t => t.isActive)
+        .sort((a, b) => a.order - b.order);
+      
+      callback(activeTemplates);
+    }, (error) => {
+      console.error('❌ Firebase templates subscription error:', error);
     });
   },
 };

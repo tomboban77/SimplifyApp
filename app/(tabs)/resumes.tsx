@@ -19,7 +19,7 @@ export default function ResumesScreen() {
   }, []);
 
   const handleCreateResume = () => {
-    router.push('/resumes/select-template');
+    router.push('/resumes/questionnaire');
   };
 
   const handleResumePress = (resume: Resume) => {

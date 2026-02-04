@@ -122,3 +122,16 @@ export interface ResumeData {
   }>;
 }
 
+export interface ResumeTemplate {
+  id: string;
+  name: string;
+  description: string;
+  badge: string | null;
+  industries: string[];
+  roles: string[];
+  isActive: boolean;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
