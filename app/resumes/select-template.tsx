@@ -1,16 +1,20 @@
-import { View, StyleSheet, ScrollView, Dimensions, Animated } from 'react-native';
-import { Appbar, Card, Text, Button, Surface, TextInput, Dialog, Portal, Chip, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Dimensions, Pressable } from 'react-native';
+import { Text, Button, TextInput, Dialog, Portal, ActivityIndicator } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useResumeStore } from '@/store/resumeStore';
 import { useTemplateStore } from '@/store/templateStore';
 import { TemplatePreview } from '@/components/resume/TemplatePreview';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors, spacing, radius, shadows, typography } from '@/theme';
 
 const { width } = Dimensions.get('window');
-const cardWidth = width - 24; // Wider cards with less margin
+const cardWidth = width - spacing.xl * 2;
 
 export default function SelectTemplateScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ industry?: string; role?: string }>();
   const { addResume } = useResumeStore();
   const { templates, loadTemplates, isLoading } = useTemplateStore();
@@ -26,12 +30,11 @@ export default function SelectTemplateScreen() {
   // Filter templates based on questionnaire answers
   const { recommendedTemplates, otherTemplates, allTemplates } = useMemo(() => {
     if (!params.industry && !params.role) {
-      // No filters - show all templates
       return { recommendedTemplates: templates, otherTemplates: [], allTemplates: templates };
     }
 
-    const recommended: TemplateMetadata[] = [];
-    const other: TemplateMetadata[] = [];
+    const recommended: typeof templates = [];
+    const other: typeof templates = [];
 
     templates.forEach((template) => {
       const matchesIndustry = !params.industry || template.industries.some(
@@ -43,8 +46,6 @@ export default function SelectTemplateScreen() {
 
       if (matchesIndustry && matchesRole) {
         recommended.push(template);
-      } else if (matchesIndustry || matchesRole) {
-        other.push(template);
       } else {
         other.push(template);
       }
@@ -98,220 +99,248 @@ export default function SelectTemplateScreen() {
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Choose Template" />
-      </Appbar.Header>
-
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" />
-          <Text style={styles.loadingText}>Loading templates...</Text>
+  const renderTemplateCard = (template: typeof templates[0], isRecommended = false) => {
+    const isSelected = selectedTemplate === template.id;
+    
+    return (
+      <Pressable
+        key={template.id}
+        style={({ pressed }) => [
+          styles.templateCard,
+          isSelected && styles.templateCardSelected,
+          isRecommended && styles.templateCardRecommended,
+          pressed && styles.templateCardPressed,
+        ]}
+        onPress={() => setSelectedTemplate(template.id)}
+      >
+        {/* Header */}
+        <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderLeft}>
+            <View style={styles.nameRow}>
+              <Text style={styles.templateName}>{template.name}</Text>
+              {template.badge && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{template.badge}</Text>
+                </View>
+              )}
+              {isRecommended && (
+                <View style={styles.recommendedBadge}>
+                  <MaterialCommunityIcons
+                    name="star"
+                    size={12}
+                    color={colors.text.inverse}
+                  />
+                  <Text style={styles.recommendedBadgeText}>Recommended</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.templateDescription} numberOfLines={2}>
+              {template.description}
+            </Text>
+          </View>
+          {isSelected && (
+            <View style={styles.checkmark}>
+              <MaterialCommunityIcons
+                name="check"
+                size={16}
+                color={colors.text.inverse}
+              />
+            </View>
+          )}
         </View>
-      ) : templates.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <Text variant="titleLarge" style={styles.emptyTitle}>No Templates Available</Text>
+
+        {/* Preview */}
+        <View style={styles.previewContainer}>
+          <TemplatePreview templateId={template.id} />
+        </View>
+      </Pressable>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={colors.primary.main} />
+        <Text style={styles.loadingText}>Loading templates...</Text>
+      </View>
+    );
+  }
+
+  if (templates.length === 0) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed && styles.backButtonPressed,
+            ]}
+            onPress={() => router.back()}
+          >
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={24}
+              color={colors.text.primary}
+            />
+          </Pressable>
+          <Text style={styles.headerTitle}>Choose Template</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={[styles.centered, { flex: 1 }]}>
+          <View style={styles.emptyIcon}>
+            <MaterialCommunityIcons
+              name="file-document-outline"
+              size={48}
+              color={colors.text.tertiary}
+            />
+          </View>
+          <Text style={styles.emptyTitle}>No Templates Available</Text>
           <Text style={styles.emptyText}>
-            Templates need to be configured in Firebase.{'\n'}
-            Please ensure Firebase is properly configured and templates are seeded.
+            Templates need to be configured in Firebase.
           </Text>
         </View>
-      ) : (
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-          <Text variant="headlineSmall" style={styles.title}>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && styles.backButtonPressed,
+          ]}
+          onPress={() => router.back()}
+        >
+          <MaterialCommunityIcons
+            name="arrow-left"
+            size={24}
+            color={colors.text.primary}
+          />
+        </Pressable>
+        <Text style={styles.headerTitle}>Choose Template</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Title Section */}
+        <View style={styles.titleSection}>
+          <Text style={styles.title}>
             {params.industry || params.role ? 'Recommended Templates' : 'Select a Template'}
           </Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>
+          <Text style={styles.subtitle}>
             {params.industry || params.role 
               ? `Templates best suited for ${params.role ? params.role : ''}${params.industry && params.role ? ' in ' : ''}${params.industry ? params.industry : ''}`
               : 'All templates are ATS-friendly and professionally designed'
             }
           </Text>
+        </View>
 
+        {/* All Templates (no filters) */}
         {(!params.industry && !params.role) && (
           <View style={styles.templatesList}>
-            {allTemplates.map((template) => (
-              <Card
-                key={template.id}
-                style={[
-                  styles.templateCard,
-                  { width: cardWidth },
-                  selectedTemplate === template.id && styles.selectedCard,
-                ]}
-                onPress={() => setSelectedTemplate(template.id)}
-                mode="outlined"
-              >
-                <Card.Content style={styles.cardContent}>
-                  <View style={styles.cardHeader}>
-                    <View style={styles.cardHeaderLeft}>
-                      <View style={styles.nameRow}>
-                        <Text variant="titleLarge" style={styles.templateName}>
-                          {template.name}
-                        </Text>
-                        {template.badge && (
-                          <View style={styles.badge}>
-                            <Text style={styles.badgeText}>{template.badge}</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text variant="bodyMedium" style={styles.templateDescription}>
-                        {template.description}
-                      </Text>
-                    </View>
-                    {selectedTemplate === template.id && (
-                      <View style={styles.checkmark}>
-                        <Text style={styles.checkmarkText}>✓</Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.previewContainer}>
-                    <TemplatePreview templateId={template.id} />
-                  </View>
-                </Card.Content>
-              </Card>
-            ))}
+            {allTemplates.map((template) => renderTemplateCard(template))}
           </View>
         )}
 
+        {/* Recommended Templates */}
         {(params.industry || params.role) && recommendedTemplates.length > 0 && (
           <>
             <View style={styles.sectionHeader}>
-              <Text variant="titleMedium" style={styles.sectionTitle}>
-                Recommended for You
-              </Text>
-              <Chip icon="star" style={styles.recommendedChip} textStyle={styles.recommendedChipText}>
-                {recommendedTemplates.length} {recommendedTemplates.length === 1 ? 'template' : 'templates'}
-              </Chip>
+              <View style={styles.sectionHeaderLeft}>
+                <MaterialCommunityIcons
+                  name="star"
+                  size={20}
+                  color={colors.secondary.main}
+                />
+                <Text style={styles.sectionTitle}>Recommended for You</Text>
+              </View>
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>
+                  {recommendedTemplates.length}
+                </Text>
+              </View>
             </View>
             <View style={styles.templatesList}>
-              {recommendedTemplates.map((template) => (
-                <Card
-                  key={template.id}
-                  style={[
-                    styles.templateCard,
-                    { width: cardWidth },
-                    selectedTemplate === template.id && styles.selectedCard,
-                    styles.recommendedCard,
-                  ]}
-                  onPress={() => setSelectedTemplate(template.id)}
-                  mode="outlined"
-                >
-                  <Card.Content style={styles.cardContent}>
-                    <View style={styles.cardHeader}>
-                      <View style={styles.cardHeaderLeft}>
-                        <View style={styles.nameRow}>
-                          <Text variant="titleLarge" style={styles.templateName}>
-                            {template.name}
-                          </Text>
-                          {template.badge && (
-                            <View style={styles.badge}>
-                              <Text style={styles.badgeText}>{template.badge}</Text>
-                            </View>
-                          )}
-                          <View style={styles.recommendedBadge}>
-                            <Text style={styles.recommendedBadgeText}>Recommended</Text>
-                          </View>
-                        </View>
-                        <Text variant="bodyMedium" style={styles.templateDescription}>
-                          {template.description}
-                        </Text>
-                      </View>
-                      {selectedTemplate === template.id && (
-                        <View style={styles.checkmark}>
-                          <Text style={styles.checkmarkText}>✓</Text>
-                        </View>
-                      )}
-                    </View>
-                    <View style={styles.previewContainer}>
-                      <TemplatePreview templateId={template.id} />
-                    </View>
-                  </Card.Content>
-                </Card>
-              ))}
+              {recommendedTemplates.map((template) => renderTemplateCard(template, true))}
             </View>
           </>
         )}
 
+        {/* Other Templates */}
         {otherTemplates.length > 0 && (
           <>
             {(params.industry || params.role) && (
               <View style={styles.sectionHeader}>
-                <Text variant="titleMedium" style={styles.sectionTitle}>
-                  Other Templates
-                </Text>
+                <View style={styles.sectionHeaderLeft}>
+                  <MaterialCommunityIcons
+                    name="file-document-multiple-outline"
+                    size={20}
+                    color={colors.text.secondary}
+                  />
+                  <Text style={styles.sectionTitle}>Other Templates</Text>
+                </View>
               </View>
             )}
             <View style={styles.templatesList}>
-              {otherTemplates.map((template) => (
-            <Card
-              key={template.id}
-              style={[
-                styles.templateCard,
-                { width: cardWidth },
-                selectedTemplate === template.id && styles.selectedCard,
-              ]}
-              onPress={() => setSelectedTemplate(template.id)}
-              mode="outlined"
-            >
-              <Card.Content style={styles.cardContent}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardHeaderLeft}>
-                    <View style={styles.nameRow}>
-                      <Text variant="titleLarge" style={styles.templateName}>
-                        {template.name}
-                      </Text>
-                      {template.badge && (
-                        <View style={styles.badge}>
-                          <Text style={styles.badgeText}>{template.badge}</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text variant="bodyMedium" style={styles.templateDescription}>
-                      {template.description}
-                    </Text>
-                  </View>
-                  {selectedTemplate === template.id && (
-                    <View style={styles.checkmark}>
-                      <Text style={styles.checkmarkText}>✓</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.previewContainer}>
-                  <TemplatePreview templateId={template.id} />
-                </View>
-              </Card.Content>
-            </Card>
-              ))}
+              {otherTemplates.map((template) => renderTemplateCard(template))}
             </View>
           </>
         )}
-        </ScrollView>
-      )}
+      </ScrollView>
 
       {/* Sticky Footer */}
-      <View style={styles.stickyFooter}>
-        <Button
-          mode="contained"
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.continueButton,
+            !selectedTemplate && styles.continueButtonDisabled,
+            pressed && selectedTemplate && styles.continueButtonPressed,
+          ]}
           onPress={handleContinue}
           disabled={!selectedTemplate || loading}
-          loading={loading}
-          style={styles.continueButton}
-          contentStyle={styles.continueButtonContent}
-          labelStyle={styles.continueButtonLabel}
         >
-          {selectedTemplate 
-            ? `Continue with ${allTemplates.find(t => t.id === selectedTemplate)?.name || 'Template'}`
-            : 'Select a Template'
-          }
-        </Button>
+          {loading ? (
+            <ActivityIndicator size="small" color={colors.text.inverse} />
+          ) : (
+            <>
+              <Text
+                style={[
+                  styles.continueButtonText,
+                  !selectedTemplate && styles.continueButtonTextDisabled,
+                ]}
+              >
+                {selectedTemplate 
+                  ? `Continue with ${allTemplates.find(t => t.id === selectedTemplate)?.name || 'Template'}`
+                  : 'Select a Template'
+                }
+              </Text>
+              {selectedTemplate && (
+                <MaterialCommunityIcons
+                  name="arrow-right"
+                  size={20}
+                  color={colors.text.inverse}
+                />
+              )}
+            </>
+          )}
+        </Pressable>
       </View>
 
       {/* Name Dialog */}
       <Portal>
-        <Dialog visible={nameDialogVisible} onDismiss={() => setNameDialogVisible(false)}>
-          <Dialog.Title>Name Your Resume</Dialog.Title>
+        <Dialog
+          visible={nameDialogVisible}
+          onDismiss={() => setNameDialogVisible(false)}
+          style={styles.dialog}
+        >
+          <Dialog.Title style={styles.dialogTitle}>Name Your Resume</Dialog.Title>
           <Dialog.Content>
             <TextInput
               label="Resume Name"
@@ -320,14 +349,22 @@ export default function SelectTemplateScreen() {
               mode="outlined"
               autoFocus
               placeholder="Enter resume name"
+              outlineColor={colors.border.light}
+              activeOutlineColor={colors.primary.main}
             />
           </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setNameDialogVisible(false)}>Cancel</Button>
-            <Button 
-              mode="contained" 
+          <Dialog.Actions style={styles.dialogActions}>
+            <Button
+              onPress={() => setNameDialogVisible(false)}
+              textColor={colors.text.secondary}
+            >
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
               onPress={handleCreateResume}
               disabled={!resumeName.trim()}
+              buttonColor={colors.primary.main}
             >
               Create
             </Button>
@@ -341,50 +378,125 @@ export default function SelectTemplateScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background.default,
   },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.light,
+    backgroundColor: colors.background.paper,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonPressed: {
+    backgroundColor: colors.interactive.hover,
+  },
+  headerTitle: {
+    ...typography.h4,
+    color: colors.text.primary,
+  },
+  headerSpacer: {
+    width: 40,
+  },
+
+  // Scroll
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: 12,
-    paddingBottom: 100, // Space for sticky footer
+    padding: spacing.xl,
+    paddingBottom: 120,
+  },
+
+  // Title Section
+  titleSection: {
+    marginBottom: spacing.xl,
   },
   title: {
-    fontWeight: '600',
-    marginBottom: 4,
+    ...typography.h2,
+    color: colors.text.primary,
     textAlign: 'center',
-    color: '#1a1a1a',
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    color: '#666666',
-    marginBottom: 16,
+    ...typography.bodyMedium,
+    color: colors.text.secondary,
     textAlign: 'center',
-    fontSize: 13,
   },
+
+  // Section Header
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+    marginTop: spacing.lg,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  sectionTitle: {
+    ...typography.h4,
+    color: colors.text.primary,
+  },
+  countBadge: {
+    backgroundColor: colors.secondary.muted,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    borderRadius: radius.sm,
+  },
+  countBadgeText: {
+    ...typography.labelSmall,
+    color: colors.secondary.dark,
+  },
+
+  // Templates List
   templatesList: {
-    marginBottom: 16,
+    gap: spacing.lg,
   },
+
+  // Template Card
   templateCard: {
-    marginBottom: 16,
-    elevation: 2,
-    borderRadius: 10,
+    backgroundColor: colors.background.paper,
+    borderRadius: radius.xl,
     overflow: 'hidden',
-    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    ...shadows.sm,
   },
-  selectedCard: {
+  templateCardSelected: {
     borderWidth: 2,
-    borderColor: '#1a1a1a',
-    elevation: 4,
+    borderColor: colors.primary.main,
+    ...shadows.md,
   },
-  cardContent: {
-    padding: 12,
+  templateCardRecommended: {
+    borderColor: colors.secondary.main,
+  },
+  templateCardPressed: {
+    backgroundColor: colors.interactive.hover,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    padding: spacing.lg,
   },
   cardHeaderLeft: {
     flex: 1,
@@ -392,147 +504,137 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
     flexWrap: 'wrap',
-    gap: 6,
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
   },
   templateName: {
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#1a1a1a',
+    ...typography.h4,
+    color: colors.text.primary,
   },
   badge: {
-    backgroundColor: '#e8f4fd',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    backgroundColor: colors.info.bg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    borderRadius: radius.sm,
   },
   badgeText: {
+    ...typography.labelSmall,
+    color: colors.info.dark,
     fontSize: 9,
-    fontWeight: '600',
-    color: '#1e3a5f',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  },
+  recommendedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+    backgroundColor: colors.secondary.main,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    borderRadius: radius.sm,
+  },
+  recommendedBadgeText: {
+    ...typography.labelSmall,
+    color: colors.text.inverse,
+    fontSize: 9,
   },
   templateDescription: {
-    color: '#666666',
-    fontSize: 12,
-    lineHeight: 16,
+    ...typography.bodySmall,
+    color: colors.text.secondary,
   },
   checkmark: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#1a1a1a',
-    justifyContent: 'center',
+    width: 28,
+    height: 28,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary.main,
     alignItems: 'center',
-    marginLeft: 8,
-  },
-  checkmarkText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: 'bold',
+    justifyContent: 'center',
+    marginLeft: spacing.sm,
   },
   previewContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 430,
-    width: '100%',
-    backgroundColor: '#f0f2f5',
-    borderRadius: 8,
-    paddingVertical: 16,
-    // Subtle inner shadow effect
-    borderWidth: 1,
-    borderColor: '#e4e6e9',
+    backgroundColor: colors.background.sunken,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+    padding: spacing.lg,
   },
-  // Sticky Footer
-  stickyFooter: {
+
+  // Footer
+  footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingBottom: 24,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    backgroundColor: colors.background.paper,
     borderTopWidth: 1,
-    borderTopColor: '#e8e8e8',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 8,
+    borderTopColor: colors.border.light,
+    ...shadows.lg,
   },
   continueButton: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-  },
-  continueButtonContent: {
-    paddingVertical: 6,
-  },
-  continueButtonLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  loadingText: {
-    marginTop: 16,
-    color: '#666666',
-    fontSize: 16,
-  },
-  emptyTitle: {
-    marginBottom: 12,
-    textAlign: 'center',
-    color: '#1a1a1a',
-  },
-  emptyText: {
-    color: '#666666',
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    marginBottom: 12,
-    paddingHorizontal: 4,
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.xl,
+    backgroundColor: colors.primary.main,
   },
-  sectionTitle: {
-    fontWeight: '700',
-    color: '#1a1a1a',
+  continueButtonDisabled: {
+    backgroundColor: colors.neutral[200],
   },
-  recommendedChip: {
-    backgroundColor: '#fff3e0',
-    height: 28,
+  continueButtonPressed: {
+    backgroundColor: colors.primary.dark,
   },
-  recommendedChipText: {
-    color: '#e65100',
-    fontSize: 11,
-    fontWeight: '600',
+  continueButtonText: {
+    ...typography.labelLarge,
+    color: colors.text.inverse,
   },
-  recommendedCard: {
-    borderColor: '#ff9800',
-    borderWidth: 1,
+  continueButtonTextDisabled: {
+    color: colors.text.disabled,
   },
-  recommendedBadge: {
-    backgroundColor: '#ff9800',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 6,
+
+  // Loading
+  loadingText: {
+    ...typography.bodyMedium,
+    color: colors.text.secondary,
+    marginTop: spacing.lg,
   },
-  recommendedBadgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#ffffff',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+
+  // Empty
+  emptyIcon: {
+    width: 96,
+    height: 96,
+    borderRadius: radius['2xl'],
+    backgroundColor: colors.background.sunken,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xl,
+  },
+  emptyTitle: {
+    ...typography.h3,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  emptyText: {
+    ...typography.bodyMedium,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+
+  // Dialog
+  dialog: {
+    backgroundColor: colors.background.paper,
+    borderRadius: radius['2xl'],
+  },
+  dialogTitle: {
+    ...typography.h3,
+    color: colors.text.primary,
+  },
+  dialogActions: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
 });

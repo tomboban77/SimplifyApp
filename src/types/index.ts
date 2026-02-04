@@ -6,32 +6,6 @@ export interface Document {
   updatedAt: string;
 }
 
-export interface PDF {
-  id: string;
-  name: string;
-  uri: string;
-  annotations?: PDFAnnotation[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PDFAnnotation {
-  id: string;
-  type: 'text' | 'signature';
-  x: number;
-  y: number;
-  width?: number;
-  height?: number;
-  content?: string;
-  color?: string;
-  page?: number;
-  createdAt: string;
-  // Text annotation properties
-  fontSize?: number;
-  // Signature as image data (base64)
-  imageData?: string;
-}
-
 export interface Resume {
   id: string;
   title: string;

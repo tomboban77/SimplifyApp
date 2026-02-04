@@ -4,7 +4,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import { useDocumentStore } from '@/store/documentStore';
 import { MarkdownViewer } from '@/components/MarkdownViewer';
-import { exportToPDF } from '@/services/pdfService';
 import { isMeetingNotesDocument } from '@/utils/meetingNotesParser';
 
 export default function EditorScreen() {
@@ -36,10 +35,6 @@ export default function EditorScreen() {
     return null;
   }
 
-  const handleSave = (content: string) => {
-    updateDocument(id, { content });
-  };
-
   const handleTitleEdit = () => {
     setTitleInput(document.title);
     setShowTitleDialog(true);
@@ -54,16 +49,6 @@ export default function EditorScreen() {
     }
   };
 
-  const handleExportPDF = async () => {
-    try {
-      await exportToPDF(document);
-      setMenuVisible(false);
-      Alert.alert('Success', 'PDF exported successfully!');
-    } catch (error) {
-      console.error('Error exporting PDF:', error);
-      Alert.alert('Error', 'Failed to export PDF. Please try again.');
-    }
-  };
 
   const handleDelete = () => {
     Alert.alert(
@@ -115,7 +100,6 @@ export default function EditorScreen() {
             />
           )}
           <Menu.Item onPress={handleTitleEdit} title="Edit Title" leadingIcon="pencil" />
-          <Menu.Item onPress={handleExportPDF} title="Export to PDF" leadingIcon="file-pdf-box" />
           <Menu.Item 
             onPress={handleDelete} 
             title="Delete Document" 

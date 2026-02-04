@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { testFirebaseConnection } from '@/services/firebaseService';
 import { useDocumentStore } from '@/store/documentStore';
-import { usePDFStore } from '@/store/pdfStore';
 import { useResumeStore } from '@/store/resumeStore';
 import { useTemplateStore } from '@/store/templateStore';
 
@@ -12,7 +11,6 @@ export default function SettingsScreen() {
   const router = useRouter();
   const [testing, setTesting] = useState(false);
   const { isFirebaseEnabled, enableFirebase, disableFirebase } = useDocumentStore();
-  const { enableFirebase: enablePDFFirebase, disableFirebase: disablePDFFirebase } = usePDFStore();
   const { enableFirebase: enableResumeFirebase, disableFirebase: disableResumeFirebase } = useResumeStore();
   const { enableFirebase: enableTemplateFirebase, disableFirebase: disableTemplateFirebase } = useTemplateStore();
 
@@ -58,7 +56,7 @@ export default function SettingsScreen() {
               Real-time Sync
             </Text>
             <Text variant="bodyMedium" style={styles.description}>
-              Enable Firebase to sync your documents, resumes, PDFs, and templates to the cloud. Your data will be backed up and synced across devices.
+              Enable Firebase to sync your documents, resumes, and templates to the cloud. Your data will be backed up and synced across devices.
             </Text>
             <View style={styles.switchRow}>
               <Text variant="bodyLarge">Enable Firebase Sync</Text>
@@ -67,13 +65,11 @@ export default function SettingsScreen() {
                 onValueChange={(enabled) => {
                   if (enabled) {
                     enableFirebase();
-                    enablePDFFirebase();
                     enableResumeFirebase();
                     enableTemplateFirebase();
-                    Alert.alert('✅ Enabled', 'Firebase sync is now active. Your documents, resumes, PDFs, and templates will be saved to the cloud.');
+                    Alert.alert('✅ Enabled', 'Firebase sync is now active. Your documents, resumes, and templates will be saved to the cloud.');
                   } else {
                     disableFirebase();
-                    disablePDFFirebase();
                     disableResumeFirebase();
                     disableTemplateFirebase();
                     Alert.alert('ℹ️ Disabled', 'Firebase sync disabled. Using local storage only.');

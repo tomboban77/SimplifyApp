@@ -1,141 +1,244 @@
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Appbar, Card, Text } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Pressable, Animated } from 'react-native';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import * as DocumentPicker from 'expo-document-picker';
-import { usePDFStore } from '@/store/pdfStore';
+import { useState, useRef } from 'react';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, spacing, radius, shadows, typography } from '@/theme';
 
+/**
+ * Option Card Component
+ * Premium interactive card with micro-animations
+ */
+interface OptionCardProps {
+  id: string;
+  title: string;
+  description: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  gradient: readonly string[] | string[];
+  onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+  badge?: string;
+}
+
+function OptionCard({
+  id,
+  title,
+  description,
+  icon,
+  gradient,
+  onPress,
+  disabled,
+  loading,
+  badge,
+}: OptionCardProps) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  
+  const handlePressIn = () => {
+    if (disabled) return;
+    Animated.spring(scaleAnim, {
+      toValue: 0.98,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
+  };
+  
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
+      <Pressable
+        onPress={disabled ? undefined : onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={({ pressed }) => [
+          styles.optionCard,
+          disabled && styles.optionCardDisabled,
+          pressed && !disabled && styles.optionCardPressed,
+        ]}
+      >
+        {/* Gradient Icon Container */}
+        <LinearGradient
+          colors={gradient as [string, string, ...string[]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.iconGradient}
+        >
+          {loading ? (
+            <ActivityIndicator color={colors.text.inverse} size={28} />
+          ) : (
+            <MaterialCommunityIcons
+              name={icon}
+              size={28}
+              color={colors.text.inverse}
+            />
+          )}
+        </LinearGradient>
+
+        {/* Content */}
+        <View style={styles.cardContent}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>{title}</Text>
+            {badge && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{badge}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.cardDescription} numberOfLines={2}>
+            {description}
+          </Text>
+        </View>
+
+        {/* Arrow indicator */}
+        {!disabled && !loading && (
+          <View style={styles.arrowContainer}>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={24}
+              color={colors.text.tertiary}
+            />
+          </View>
+        )}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+/**
+ * Section Header Component
+ */
+function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {subtitle && <Text style={styles.sectionSubtitle}>{subtitle}</Text>}
+    </View>
+  );
+}
+
+/**
+ * GeneralScreen - Premium Create Hub
+ */
 export default function GeneralScreen() {
   const router = useRouter();
-  const { addPDF } = usePDFStore();
-  const [uploading, setUploading] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const handleCreateResume = () => {
     router.push('/resumes/questionnaire');
   };
 
   const handleCreateCoverLetter = () => {
-    // No action for now - placeholder
-    // TODO: Implement cover letter creation
+    // Coming soon
   };
 
   const handleCreateMeetingNotes = () => {
     router.push('/create/meeting-notes');
   };
 
-  const handleUploadPDF = async () => {
-    try {
-      setUploading(true);
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const pdf = await addPDF({
-          name: result.assets[0].name,
-          uri: result.assets[0].uri,
-        });
-        // Navigate to the uploaded PDF
-        router.push(`/pdf/${pdf.id}`);
-      }
-    } catch (error) {
-      console.error('Error picking PDF:', error);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const options = [
+  const primaryOptions = [
     {
       id: 'resume',
       title: 'Resume',
-      description: 'Create a professional resume with customizable templates',
-      icon: 'file-account',
-      color: '#1976d2',
+      description: 'Create a professional resume with beautiful, customizable templates',
+      icon: 'file-account-outline' as const,
+      gradient: colors.gradients.primary,
       onPress: handleCreateResume,
     },
     {
       id: 'cover-letter',
       title: 'Cover Letter',
-      description: 'Coming soon - Create professional cover letters',
-      icon: 'file-document-edit',
-      color: '#2e7d32',
+      description: 'Craft compelling cover letters that complement your resume',
+      icon: 'email-edit-outline' as const,
+      gradient: colors.gradients.secondary,
       onPress: handleCreateCoverLetter,
       disabled: true,
+      badge: 'Soon',
     },
+  ];
+
+  const secondaryOptions = [
     {
       id: 'meeting-notes',
       title: 'Meeting Notes',
-      description: 'Create structured meeting notes with action items',
-      icon: 'calendar-text',
-      color: '#ed6c02',
+      description: 'Create structured meeting notes with action items and follow-ups',
+      icon: 'calendar-check-outline' as const,
+      gradient: colors.gradients.sunrise,
       onPress: handleCreateMeetingNotes,
-    },
-    {
-      id: 'pdf',
-      title: 'Upload PDF',
-      description: 'Upload and annotate PDF documents',
-      icon: 'file-pdf-box',
-      color: '#d32f2f',
-      onPress: handleUploadPDF,
     },
   ];
 
   return (
-    <View style={styles.container}>
-      <Appbar.Header>
-        <Appbar.Content title="General" />
-      </Appbar.Header>
-
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <Text variant="headlineSmall" style={styles.title}>
-          Create New
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Create</Text>
+        <Text style={styles.headerSubtitle}>
+          Build professional documents effortlessly
         </Text>
-        <Text variant="bodyMedium" style={styles.subtitle}>
-          Choose what you'd like to create
-        </Text>
+      </View>
 
-        {options.map((option) => (
-          <Card
-            key={option.id}
-            style={[
-              styles.optionCard,
-              option.disabled && styles.optionCardDisabled,
-            ]}
-            onPress={option.disabled ? undefined : option.onPress}
-            mode="elevated"
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          <LinearGradient
+            colors={[colors.primary.muted, colors.background.default]}
+            style={styles.heroGradient}
           >
-            <Card.Content style={styles.cardContent}>
-              <View style={[styles.iconContainer, { backgroundColor: `${option.color}15` }]}>
-                <Text style={[styles.icon, { color: option.color }]}>
-                  {option.id === 'resume' && '📄'}
-                  {option.id === 'cover-letter' && '✉️'}
-                  {option.id === 'meeting-notes' && '📝'}
-                  {option.id === 'pdf' && '📑'}
-                </Text>
+            <View style={styles.heroContent}>
+              <View style={styles.heroIcon}>
+                <MaterialCommunityIcons
+                  name="lightning-bolt"
+                  size={32}
+                  color={colors.primary.main}
+                />
               </View>
-              <View style={styles.textContainer}>
-                <Text variant="titleMedium" style={styles.optionTitle}>
-                  {option.title}
-                </Text>
-                <Text variant="bodySmall" style={styles.optionDescription}>
-                  {option.description}
-                </Text>
-              </View>
-              {option.disabled && (
-                <View style={styles.comingSoonBadge}>
-                  <Text style={styles.comingSoonText}>Soon</Text>
-                </View>
-              )}
-              {option.id === 'pdf' && uploading && (
-                <View style={styles.uploadingBadge}>
-                  <Text style={styles.uploadingText}>Uploading...</Text>
-                </View>
-              )}
-            </Card.Content>
-          </Card>
-        ))}
+              <Text style={styles.heroTitle}>Quick Start</Text>
+              <Text style={styles.heroDescription}>
+                Choose a document type to get started. Your work is automatically saved.
+              </Text>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* Primary Options */}
+        <SectionHeader
+          title="Documents"
+          subtitle="Professional career documents"
+        />
+        <View style={styles.optionsGrid}>
+          {primaryOptions.map((option) => (
+            <OptionCard key={option.id} {...option} />
+          ))}
+        </View>
+
+        {/* Secondary Options */}
+        <SectionHeader
+          title="Productivity"
+          subtitle="Tools to stay organized"
+        />
+        <View style={styles.optionsGrid}>
+          {secondaryOptions.map((option) => (
+            <OptionCard key={option.id} {...option} />
+          ))}
+        </View>
+
+        {/* Bottom padding */}
+        <View style={{ height: spacing['4xl'] }} />
       </ScrollView>
     </View>
   );
@@ -144,78 +247,153 @@ export default function GeneralScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background.default,
   },
-  content: {
+  
+  // Header
+  header: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background.default,
+  },
+  headerTitle: {
+    ...typography.h1,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  headerSubtitle: {
+    ...typography.bodyMedium,
+    color: colors.text.secondary,
+  },
+  
+  // Scroll
+  scrollView: {
     flex: 1,
   },
-  contentContainer: {
-    padding: 16,
+  scrollContent: {
+    paddingHorizontal: spacing.xl,
   },
-  title: {
-    fontWeight: '600',
-    marginBottom: 8,
+  
+  // Hero Section
+  heroSection: {
+    marginBottom: spacing['2xl'],
+    borderRadius: radius['2xl'],
+    overflow: 'hidden',
   },
-  subtitle: {
-    color: '#757575',
-    marginBottom: 24,
+  heroGradient: {
+    padding: spacing.xl,
   },
+  heroContent: {
+    alignItems: 'center',
+  },
+  heroIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.xl,
+    backgroundColor: colors.background.paper,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+    ...shadows.md,
+  },
+  heroTitle: {
+    ...typography.h3,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  heroDescription: {
+    ...typography.bodyMedium,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    maxWidth: 280,
+  },
+  
+  // Section Headers
+  sectionHeader: {
+    marginBottom: spacing.lg,
+  },
+  sectionTitle: {
+    ...typography.labelSmall,
+    color: colors.text.tertiary,
+    marginBottom: spacing.xs,
+  },
+  sectionSubtitle: {
+    ...typography.bodySmall,
+    color: colors.text.secondary,
+  },
+  
+  // Options Grid
+  optionsGrid: {
+    marginBottom: spacing['2xl'],
+    gap: spacing.md,
+  },
+  
+  // Option Card
   optionCard: {
-    marginBottom: 16,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.paper,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    ...shadows.sm,
+  },
+  optionCardPressed: {
+    backgroundColor: colors.interactive.hover,
+    borderColor: colors.primary.muted,
   },
   optionCardDisabled: {
     opacity: 0.6,
   },
-  cardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  iconContainer: {
+  
+  // Icon Gradient
+  iconGradient: {
     width: 56,
     height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
+    borderRadius: radius.lg,
     alignItems: 'center',
-    marginRight: 16,
+    justifyContent: 'center',
   },
-  icon: {
-    fontSize: 28,
-  },
-  textContainer: {
+  
+  // Card Content
+  cardContent: {
     flex: 1,
+    marginLeft: spacing.lg,
   },
-  optionTitle: {
-    fontWeight: '600',
-    marginBottom: 4,
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
   },
-  optionDescription: {
-    color: '#757575',
+  cardTitle: {
+    ...typography.h4,
+    color: colors.text.primary,
+  },
+  cardDescription: {
+    ...typography.bodySmall,
+    color: colors.text.secondary,
     lineHeight: 20,
   },
-  comingSoonBadge: {
-    backgroundColor: '#ff9800',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginLeft: 8,
+  
+  // Badge
+  badge: {
+    marginLeft: spacing.sm,
+    backgroundColor: colors.secondary.main,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    borderRadius: radius.sm,
   },
-  comingSoonText: {
-    color: '#ffffff',
+  badgeText: {
+    ...typography.labelSmall,
+    color: colors.text.inverse,
     fontSize: 10,
-    fontWeight: '600',
   },
-  uploadingBadge: {
-    backgroundColor: '#1976d2',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  uploadingText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '600',
+  
+  // Arrow
+  arrowContainer: {
+    marginLeft: spacing.sm,
+    opacity: 0.5,
   },
 });

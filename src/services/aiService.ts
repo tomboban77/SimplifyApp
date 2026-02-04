@@ -52,16 +52,6 @@ class AIService {
     return this.getTemplateResponse(prompt);
   }
 
-  async summarizePDF(uri: string): Promise<string> {
-    // Placeholder implementation
-    // In production, extract text from PDF and send to AI
-    return 'This is a placeholder summary. In production, this would analyze the PDF content and provide a comprehensive summary using AI.';
-  }
-
-  async explainPDF(uri: string): Promise<string> {
-    // Placeholder implementation
-    return 'This is a placeholder explanation. In production, this would analyze the PDF content and provide detailed explanations using AI.';
-  }
 
   private getTemplateResponse(prompt: string): string {
     // Enhanced template responses
@@ -228,8 +218,6 @@ export const useAIService = () => {
   const service = new AIService();
   return {
     generateDocument: (prompt: string) => service.generateDocument(prompt),
-    summarizePDF: (uri: string) => service.summarizePDF(uri),
-    explainPDF: (uri: string) => service.explainPDF(uri),
   };
 };
 

@@ -1,9 +1,10 @@
-import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { Appbar, Card, Text, Button, Chip, TextInput, Portal, Dialog } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { Text, Button, Chip, TextInput, Portal, Dialog } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-
-const { width } = Dimensions.get('window');
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors, spacing, radius, shadows, typography } from '@/theme';
 
 const industries = [
   'Technology',
@@ -37,6 +38,7 @@ const roles = [
 
 export default function QuestionnaireScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [customIndustry, setCustomIndustry] = useState('');
@@ -98,121 +100,185 @@ export default function QuestionnaireScreen() {
   const canContinue = selectedIndustry && selectedRole;
 
   return (
-    <View style={styles.container}>
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Tell Us About You" />
-      </Appbar.Header>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && styles.backButtonPressed,
+          ]}
+          onPress={() => router.back()}
+        >
+          <MaterialCommunityIcons
+            name="arrow-left"
+            size={24}
+            color={colors.text.primary}
+          />
+        </Pressable>
+        <Text style={styles.headerTitle}>Tell Us About You</Text>
+        <View style={styles.headerSpacer} />
+      </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text variant="headlineMedium" style={styles.title}>
-            Let's Find Your Perfect Resume
-          </Text>
-          <Text variant="bodyLarge" style={styles.subtitle}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero */}
+        <View style={styles.hero}>
+          <View style={styles.heroIcon}>
+            <MaterialCommunityIcons
+              name="compass-outline"
+              size={32}
+              color={colors.primary.main}
+            />
+          </View>
+          <Text style={styles.heroTitle}>Let's Find Your Perfect Resume</Text>
+          <Text style={styles.heroSubtitle}>
             Help us recommend the best template for your career goals
           </Text>
         </View>
 
         {/* Industry Section */}
-        <Card style={styles.card} mode="outlined">
-          <Card.Content>
-            <Text variant="titleLarge" style={styles.sectionTitle}>
-              What Industry?
-            </Text>
-            <Text variant="bodyMedium" style={styles.sectionDescription}>
-              Select the industry you're targeting
-            </Text>
-            <View style={styles.chipContainer}>
-              {industries.map((industry) => (
-                <Chip
-                  key={industry}
-                  selected={selectedIndustry === industry}
-                  onPress={() => handleIndustrySelect(industry)}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons
+              name="domain"
+              size={20}
+              color={colors.primary.main}
+            />
+            <Text style={styles.sectionTitle}>What Industry?</Text>
+          </View>
+          <Text style={styles.sectionDescription}>
+            Select the industry you're targeting
+          </Text>
+          <View style={styles.chipContainer}>
+            {industries.map((industry) => (
+              <Pressable
+                key={industry}
+                style={({ pressed }) => [
+                  styles.chip,
+                  selectedIndustry === industry && styles.chipSelected,
+                  pressed && styles.chipPressed,
+                ]}
+                onPress={() => handleIndustrySelect(industry)}
+              >
+                <Text
                   style={[
-                    styles.chip,
-                    selectedIndustry === industry && styles.chipSelected,
-                  ]}
-                  textStyle={[
                     styles.chipText,
                     selectedIndustry === industry && styles.chipTextSelected,
                   ]}
                 >
                   {industry}
-                </Chip>
-              ))}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {selectedIndustry && selectedIndustry !== 'Other' && (
+            <View style={styles.selectedBadge}>
+              <MaterialCommunityIcons
+                name="check-circle"
+                size={16}
+                color={colors.success.main}
+              />
+              <Text style={styles.selectedBadgeText}>{selectedIndustry}</Text>
             </View>
-            {selectedIndustry && selectedIndustry !== 'Other' && (
-              <View style={styles.selectedBadge}>
-                <Text style={styles.selectedBadgeText}>✓ {selectedIndustry}</Text>
-              </View>
-            )}
-          </Card.Content>
-        </Card>
+          )}
+        </View>
 
         {/* Role Section */}
-        <Card style={styles.card} mode="outlined">
-          <Card.Content>
-            <Text variant="titleLarge" style={styles.sectionTitle}>
-              What Role Level?
-            </Text>
-            <Text variant="bodyMedium" style={styles.sectionDescription}>
-              Choose your experience level
-            </Text>
-            <View style={styles.chipContainer}>
-              {roles.map((role) => (
-                <Chip
-                  key={role}
-                  selected={selectedRole === role}
-                  onPress={() => handleRoleSelect(role)}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons
+              name="account-tie"
+              size={20}
+              color={colors.secondary.main}
+            />
+            <Text style={styles.sectionTitle}>What Role Level?</Text>
+          </View>
+          <Text style={styles.sectionDescription}>
+            Choose your experience level
+          </Text>
+          <View style={styles.chipContainer}>
+            {roles.map((role) => (
+              <Pressable
+                key={role}
+                style={({ pressed }) => [
+                  styles.chip,
+                  selectedRole === role && styles.chipSelected,
+                  pressed && styles.chipPressed,
+                ]}
+                onPress={() => handleRoleSelect(role)}
+              >
+                <Text
                   style={[
-                    styles.chip,
-                    selectedRole === role && styles.chipSelected,
-                  ]}
-                  textStyle={[
                     styles.chipText,
                     selectedRole === role && styles.chipTextSelected,
                   ]}
                 >
                   {role}
-                </Chip>
-              ))}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {selectedRole && selectedRole !== 'Other' && (
+            <View style={styles.selectedBadge}>
+              <MaterialCommunityIcons
+                name="check-circle"
+                size={16}
+                color={colors.success.main}
+              />
+              <Text style={styles.selectedBadgeText}>{selectedRole}</Text>
             </View>
-            {selectedRole && selectedRole !== 'Other' && (
-              <View style={styles.selectedBadge}>
-                <Text style={styles.selectedBadgeText}>✓ {selectedRole}</Text>
-              </View>
-            )}
-          </Card.Content>
-        </Card>
+          )}
+        </View>
       </ScrollView>
 
-      {/* Sticky Footer */}
-      <View style={styles.footer}>
-        <Button
-          mode="outlined"
+      {/* Footer */}
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.skipButton,
+            pressed && styles.skipButtonPressed,
+          ]}
           onPress={handleSkip}
-          style={styles.skipButton}
-          labelStyle={styles.skipButtonLabel}
         >
-          Skip
-        </Button>
-        <Button
-          mode="contained"
+          <Text style={styles.skipButtonText}>Skip</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [
+            styles.continueButton,
+            !canContinue && styles.continueButtonDisabled,
+            pressed && canContinue && styles.continueButtonPressed,
+          ]}
           onPress={handleContinue}
           disabled={!canContinue}
-          style={styles.continueButton}
-          contentStyle={styles.continueButtonContent}
-          labelStyle={styles.continueButtonLabel}
         >
-          Continue
-        </Button>
+          <Text
+            style={[
+              styles.continueButtonText,
+              !canContinue && styles.continueButtonTextDisabled,
+            ]}
+          >
+            Continue
+          </Text>
+          <MaterialCommunityIcons
+            name="arrow-right"
+            size={20}
+            color={canContinue ? colors.text.inverse : colors.text.disabled}
+          />
+        </Pressable>
       </View>
 
       {/* Custom Industry Dialog */}
       <Portal>
-        <Dialog visible={showCustomIndustry} onDismiss={() => setShowCustomIndustry(false)}>
-          <Dialog.Title>Custom Industry</Dialog.Title>
+        <Dialog
+          visible={showCustomIndustry}
+          onDismiss={() => setShowCustomIndustry(false)}
+          style={styles.dialog}
+        >
+          <Dialog.Title style={styles.dialogTitle}>Custom Industry</Dialog.Title>
           <Dialog.Content>
             <TextInput
               label="Enter Industry"
@@ -221,14 +287,22 @@ export default function QuestionnaireScreen() {
               mode="outlined"
               autoFocus
               placeholder="e.g., Aerospace, Non-profit"
+              outlineColor={colors.border.light}
+              activeOutlineColor={colors.primary.main}
             />
           </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowCustomIndustry(false)}>Cancel</Button>
+          <Dialog.Actions style={styles.dialogActions}>
+            <Button
+              onPress={() => setShowCustomIndustry(false)}
+              textColor={colors.text.secondary}
+            >
+              Cancel
+            </Button>
             <Button
               mode="contained"
               onPress={handleCustomIndustrySave}
               disabled={!customIndustry.trim()}
+              buttonColor={colors.primary.main}
             >
               Save
             </Button>
@@ -238,8 +312,12 @@ export default function QuestionnaireScreen() {
 
       {/* Custom Role Dialog */}
       <Portal>
-        <Dialog visible={showCustomRole} onDismiss={() => setShowCustomRole(false)}>
-          <Dialog.Title>Custom Role</Dialog.Title>
+        <Dialog
+          visible={showCustomRole}
+          onDismiss={() => setShowCustomRole(false)}
+          style={styles.dialog}
+        >
+          <Dialog.Title style={styles.dialogTitle}>Custom Role</Dialog.Title>
           <Dialog.Content>
             <TextInput
               label="Enter Role Level"
@@ -248,14 +326,22 @@ export default function QuestionnaireScreen() {
               mode="outlined"
               autoFocus
               placeholder="e.g., Consultant, Specialist"
+              outlineColor={colors.border.light}
+              activeOutlineColor={colors.primary.main}
             />
           </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowCustomRole(false)}>Cancel</Button>
+          <Dialog.Actions style={styles.dialogActions}>
+            <Button
+              onPress={() => setShowCustomRole(false)}
+              textColor={colors.text.secondary}
+            >
+              Cancel
+            </Button>
             <Button
               mode="contained"
               onPress={handleCustomRoleSave}
               disabled={!customRole.trim()}
+              buttonColor={colors.primary.main}
             >
               Save
             </Button>
@@ -269,120 +355,212 @@ export default function QuestionnaireScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background.default,
   },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.light,
+    backgroundColor: colors.background.paper,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonPressed: {
+    backgroundColor: colors.interactive.hover,
+  },
+  headerTitle: {
+    ...typography.h4,
+    color: colors.text.primary,
+  },
+  headerSpacer: {
+    width: 40,
+  },
+
+  // Scroll
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: 20,
-    paddingBottom: 100,
+    padding: spacing.xl,
+    paddingBottom: 120,
   },
-  header: {
-    marginBottom: 24,
+
+  // Hero
+  hero: {
     alignItems: 'center',
+    marginBottom: spacing['3xl'],
   },
-  title: {
-    fontWeight: '700',
-    marginBottom: 8,
+  heroIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: radius['2xl'],
+    backgroundColor: colors.primary.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  heroTitle: {
+    ...typography.h2,
+    color: colors.text.primary,
     textAlign: 'center',
-    color: '#1a1a1a',
+    marginBottom: spacing.sm,
   },
-  subtitle: {
-    color: '#666666',
+  heroSubtitle: {
+    ...typography.bodyMedium,
+    color: colors.text.secondary,
     textAlign: 'center',
-    lineHeight: 22,
+    maxWidth: 280,
   },
-  card: {
-    marginBottom: 20,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    elevation: 2,
+
+  // Section
+  section: {
+    backgroundColor: colors.background.paper,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    marginBottom: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    ...shadows.sm,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
   },
   sectionTitle: {
-    fontWeight: '700',
-    marginBottom: 6,
-    color: '#1a1a1a',
+    ...typography.h4,
+    color: colors.text.primary,
   },
   sectionDescription: {
-    color: '#666666',
-    marginBottom: 16,
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
   },
+
+  // Chips
   chipContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: spacing.sm,
   },
   chip: {
-    marginBottom: 8,
-    backgroundColor: '#f0f0f0',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    backgroundColor: colors.background.sunken,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.border.light,
   },
   chipSelected: {
-    backgroundColor: '#1a1a1a',
-    borderColor: '#1a1a1a',
+    backgroundColor: colors.primary.main,
+    borderColor: colors.primary.main,
+  },
+  chipPressed: {
+    backgroundColor: colors.interactive.pressed,
   },
   chipText: {
-    color: '#333333',
-    fontSize: 13,
-    fontWeight: '500',
+    ...typography.labelMedium,
+    color: colors.text.primary,
   },
   chipTextSelected: {
-    color: '#ffffff',
-    fontWeight: '600',
+    color: colors.text.inverse,
   },
+
+  // Selected Badge
   selectedBadge: {
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#e8f5e9',
-    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.success.bg,
+    borderRadius: radius.lg,
     alignSelf: 'flex-start',
   },
   selectedBadgeText: {
-    color: '#2e7d32',
-    fontWeight: '600',
-    fontSize: 13,
+    ...typography.labelMedium,
+    color: colors.success.dark,
   },
+
+  // Footer
   footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingBottom: 32,
-    borderTopWidth: 1,
-    borderTopColor: '#e8e8e8',
     flexDirection: 'row',
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 8,
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    backgroundColor: colors.background.paper,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+    ...shadows.lg,
   },
   skipButton: {
     flex: 1,
-    borderColor: '#d0d0d0',
+    paddingVertical: spacing.lg,
+    borderRadius: radius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.main,
   },
-  skipButtonLabel: {
-    color: '#666666',
-    fontWeight: '600',
+  skipButtonPressed: {
+    backgroundColor: colors.interactive.hover,
+  },
+  skipButtonText: {
+    ...typography.labelLarge,
+    color: colors.text.secondary,
   },
   continueButton: {
     flex: 2,
-    backgroundColor: '#1a1a1a',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.xl,
+    backgroundColor: colors.primary.main,
   },
-  continueButtonContent: {
-    paddingVertical: 4,
+  continueButtonDisabled: {
+    backgroundColor: colors.neutral[200],
   },
-  continueButtonLabel: {
-    fontSize: 15,
-    fontWeight: '600',
+  continueButtonPressed: {
+    backgroundColor: colors.primary.dark,
+  },
+  continueButtonText: {
+    ...typography.labelLarge,
+    color: colors.text.inverse,
+  },
+  continueButtonTextDisabled: {
+    color: colors.text.disabled,
+  },
+
+  // Dialog
+  dialog: {
+    backgroundColor: colors.background.paper,
+    borderRadius: radius['2xl'],
+  },
+  dialogTitle: {
+    ...typography.h3,
+    color: colors.text.primary,
+  },
+  dialogActions: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
 });
-

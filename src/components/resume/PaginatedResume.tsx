@@ -10,6 +10,8 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const PAGE_HORIZONTAL_MARGIN = 16;
 const PAGE_VERTICAL_MARGIN = 20;
 const HEADER_HEIGHT = 64; // Appbar height
+const PAGE_TOP_PADDING = 40; // Top padding for each page (in original coordinates)
+const PAGE_BOTTOM_PADDING = 40; // Bottom padding for each page (in original coordinates)
 
 // Calculate page dimensions to fit screen nicely
 const AVAILABLE_HEIGHT = SCREEN_HEIGHT - HEADER_HEIGHT - (PAGE_VERTICAL_MARGIN * 2) - 60; // 60 for indicator
@@ -59,10 +61,47 @@ export function PaginatedResume({ templateId, data }: PaginatedResumeProps) {
       }
 
       measureTimeoutRef.current = setTimeout(() => {
+        // measuredHeight is now the pure content height (no padding in measurement)
         setContentHeight(measuredHeight);
         
         // Calculate pages based on original A4 page height
-        const pages = Math.max(1, Math.ceil(measuredHeight / originalPageHeight));
+        // First page: total height is originalPageHeight, with PAGE_BOTTOM_PADDING reserved for padding
+        // So content can use: originalPageHeight - PAGE_BOTTOM_PADDING
+        const firstPageAvailableHeight = originalPageHeight - PAGE_BOTTOM_PADDING;
+        
+        // Subsequent pages: total height is originalPageHeight, with top and bottom padding
+        // So content can use: originalPageHeight - PAGE_TOP_PADDING - PAGE_BOTTOM_PADDING
+        const subsequentPageAvailableHeight = originalPageHeight - PAGE_TOP_PADDING - PAGE_BOTTOM_PADDING;
+        
+        let pages = 1;
+        
+        // Check if content fits on first page
+        // Use percentage-based tolerance (1%) to account for rounding/measurement precision
+        // This prevents creating empty second pages for content that's very close to fitting
+        const tolerance = firstPageAvailableHeight * 0.01; // 1% tolerance
+        const maxContentForFirstPage = firstPageAvailableHeight + tolerance;
+        
+        if (measuredHeight <= maxContentForFirstPage) {
+          pages = 1;
+        } else {
+          // Content exceeds first page
+          // First page can show: firstPageAvailableHeight of content
+          // Remaining content after first page
+          const remainingContent = measuredHeight - firstPageAvailableHeight;
+          
+          // Only create additional pages if there's meaningful content remaining
+          // (at least 20px or 2% of page height, whichever is smaller)
+          const minContentForNewPage = Math.min(20, subsequentPageAvailableHeight * 0.02);
+          
+          if (remainingContent > minContentForNewPage) {
+            const additionalPages = Math.ceil(remainingContent / subsequentPageAvailableHeight);
+            pages = 1 + additionalPages;
+          } else {
+            // Content is just slightly over, still show as 1 page
+            pages = 1;
+          }
+        }
+        
         setTotalPages(pages);
         setIsReady(true);
         
@@ -101,10 +140,13 @@ export function PaginatedResume({ templateId, data }: PaginatedResumeProps) {
 
   return (
     <View style={styles.container}>
-      {/* Hidden measurement view */}
+      {/* Hidden measurement view - measure content without padding */}
       <View style={styles.measureContainer} pointerEvents="none">
         <View 
-          style={{ width: ORIGINAL_WIDTH, backgroundColor: '#ffffff' }}
+          style={{ 
+            width: ORIGINAL_WIDTH, 
+            backgroundColor: '#ffffff',
+          }}
           onLayout={handleMeasure}
         >
           <ResumeTemplate templateId={templateId} data={data} />
@@ -127,7 +169,12 @@ export function PaginatedResume({ templateId, data }: PaginatedResumeProps) {
           >
             {Array.from({ length: totalPages }, (_, pageIndex) => {
               // Y offset in original coordinates
-              const offsetY = pageIndex * originalPageHeight;
+              // For pages after the first, we need to account for top padding
+              // by starting the content offset earlier
+              const isFirstPage = pageIndex === 0;
+              const topPaddingOffset = isFirstPage ? 0 : PAGE_TOP_PADDING;
+              // Offset accounts for: (page height * page index) - top padding (if not first page)
+              const offsetY = (pageIndex * originalPageHeight) - topPaddingOffset;
               
               return (
                 <View 
@@ -150,13 +197,24 @@ export function PaginatedResume({ templateId, data }: PaginatedResumeProps) {
                       }
                     ]}
                   >
-                    {/* Clip container */}
+                    {/* Top padding spacer for pages after the first */}
+                    {!isFirstPage && (
+                      <View 
+                        style={{ 
+                          height: PAGE_TOP_PADDING * scale, 
+                          backgroundColor: '#ffffff',
+                          width: '100%',
+                        }} 
+                      />
+                    )}
+                    
+                    {/* Clip container - reduced height to leave space at top and bottom */}
                     <View 
                       style={[
                         styles.clipContainer, 
                         { 
                           width: FINAL_PAGE_WIDTH, 
-                          height: scaledPageHeight,
+                          height: scaledPageHeight - (PAGE_BOTTOM_PADDING * scale) - (!isFirstPage ? PAGE_TOP_PADDING * scale : 0),
                         }
                       ]}
                     >
@@ -179,6 +237,15 @@ export function PaginatedResume({ templateId, data }: PaginatedResumeProps) {
                         <ResumeTemplate templateId={templateId} data={data} />
                       </View>
                     </View>
+                    
+                    {/* Bottom padding spacer to create space at bottom of page */}
+                    <View 
+                      style={{ 
+                        height: PAGE_BOTTOM_PADDING * scale, 
+                        backgroundColor: '#ffffff',
+                        width: '100%',
+                      }} 
+                    />
                   </View>
                 </View>
               );

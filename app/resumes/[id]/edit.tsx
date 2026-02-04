@@ -88,7 +88,10 @@ export default function EditResumeScreen() {
   return (
     <View style={styles.container}>
       <Appbar.Header elevated>
-        <Appbar.BackAction onPress={() => router.back()} />
+        <Appbar.BackAction onPress={() => {
+          // Navigate to resumes tab instead of going back to avoid questionnaire
+          router.replace('/(tabs)/resumes');
+        }} />
         <Appbar.Content title={showPreview ? "Preview" : "Edit Resume"} />
         <Appbar.Action 
           icon={showPreview ? "pencil" : "eye"} 

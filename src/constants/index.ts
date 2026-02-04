@@ -5,7 +5,6 @@
 // Storage Keys
 export const STORAGE_KEYS = {
   DOCUMENTS: '@documents',
-  PDFS: '@pdfs',
   SETTINGS: '@settings',
 } as const;
 

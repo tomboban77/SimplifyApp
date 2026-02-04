@@ -1,6 +1,6 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore, collection, doc, setDoc, deleteDoc, getDocs, query, orderBy, Timestamp, onSnapshot } from 'firebase/firestore';
-import { Document, PDF, Resume, ResumeTemplate } from '@/types';
+import { Document, Resume, ResumeTemplate } from '@/types';
 
 // Firebase configuration - all values must come from environment variables
 const firebaseConfig = {
@@ -198,90 +198,6 @@ export const documentsService = {
       callback(documents);
     }, (error) => {
       console.error('❌ Firebase documents subscription error:', error);
-    });
-  },
-};
-
-// PDFs Service for Firebase
-export const pdfsService = {
-  // Create PDF
-  create: async (pdf: Omit<PDF, 'id' | 'createdAt' | 'updatedAt'>): Promise<PDF> => {
-    const firestoreDB = getFirestoreDB();
-    if (!firestoreDB) {
-      throw new Error('Firebase not initialized');
-    }
-
-    const docRef = doc(collection(firestoreDB, 'pdfs'));
-    const newPDF: PDF = {
-      id: docRef.id,
-      ...pdf,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    await setDoc(docRef, {
-      ...newPDF,
-      createdAt: Timestamp.fromDate(new Date(newPDF.createdAt)),
-      updatedAt: Timestamp.fromDate(new Date(newPDF.updatedAt)),
-    });
-
-    return newPDF;
-  },
-
-  // Update PDF
-  update: async (id: string, updates: Partial<PDF>): Promise<void> => {
-    const firestoreDB = getFirestoreDB();
-    if (!firestoreDB) {
-      throw new Error('Firebase not initialized');
-    }
-
-    const docRef = doc(firestoreDB, 'pdfs', id);
-    await setDoc(docRef, {
-      ...updates,
-      updatedAt: Timestamp.fromDate(new Date()),
-    }, { merge: true });
-  },
-
-  // Delete PDF
-  delete: async (id: string): Promise<void> => {
-    const firestoreDB = getFirestoreDB();
-    if (!firestoreDB) {
-      throw new Error('Firebase not initialized');
-    }
-
-    const docRef = doc(firestoreDB, 'pdfs', id);
-    await deleteDoc(docRef);
-  },
-
-  // Subscribe to real-time updates
-  subscribe: (callback: (pdfs: PDF[]) => void): (() => void) => {
-    const firestoreDB = getFirestoreDB();
-    if (!firestoreDB) {
-      return () => {};
-    }
-
-    const q = query(
-      collection(firestoreDB, 'pdfs'),
-      orderBy('updatedAt', 'desc')
-    );
-
-    return onSnapshot(q, (snapshot) => {
-      const pdfs: PDF[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        const pdf: PDF = {
-          id: docSnap.id,
-          name: data.name || '',
-          uri: data.uri || '',
-          annotations: data.annotations || [],
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString(),
-          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt || new Date().toISOString(),
-        };
-        pdfs.push(pdf);
-      });
-      callback(pdfs);
-    }, (error) => {
-      console.error('❌ Firebase PDFs subscription error:', error);
     });
   },
 };
