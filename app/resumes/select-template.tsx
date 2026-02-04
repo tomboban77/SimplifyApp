@@ -1,5 +1,5 @@
 import { View, StyleSheet, ScrollView, Dimensions, Animated } from 'react-native';
-import { Appbar, Card, Text, Button, Surface } from 'react-native-paper';
+import { Appbar, Card, Text, Button, Surface, TextInput, Dialog, Portal } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { useResumeStore } from '@/store/resumeStore';
@@ -46,13 +46,26 @@ export default function SelectTemplateScreen() {
   const { addResume } = useResumeStore();
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [nameDialogVisible, setNameDialogVisible] = useState(false);
+  const [resumeName, setResumeName] = useState('');
 
-  const handleSelectTemplate = async (templateId: string) => {
+  const handleContinue = () => {
+    if (selectedTemplate) {
+      const defaultName = templates.find(t => t.id === selectedTemplate)?.name || 'Resume';
+      setResumeName(`My Resume - ${defaultName}`);
+      setNameDialogVisible(true);
+    }
+  };
+
+  const handleCreateResume = async () => {
+    if (!selectedTemplate) return;
+    
+    setNameDialogVisible(false);
     setLoading(true);
     try {
       const newResume = await addResume({
-        title: `My Resume - ${templates.find(t => t.id === templateId)?.name}`,
-        templateId,
+        title: resumeName.trim() || `My Resume - ${templates.find(t => t.id === selectedTemplate)?.name}`,
+        templateId: selectedTemplate,
         data: {
           personalInfo: {
             fullName: '',
@@ -140,7 +153,7 @@ export default function SelectTemplateScreen() {
       <View style={styles.stickyFooter}>
         <Button
           mode="contained"
-          onPress={() => selectedTemplate && handleSelectTemplate(selectedTemplate)}
+          onPress={handleContinue}
           disabled={!selectedTemplate || loading}
           loading={loading}
           style={styles.continueButton}
@@ -153,6 +166,33 @@ export default function SelectTemplateScreen() {
           }
         </Button>
       </View>
+
+      {/* Name Dialog */}
+      <Portal>
+        <Dialog visible={nameDialogVisible} onDismiss={() => setNameDialogVisible(false)}>
+          <Dialog.Title>Name Your Resume</Dialog.Title>
+          <Dialog.Content>
+            <TextInput
+              label="Resume Name"
+              value={resumeName}
+              onChangeText={setResumeName}
+              mode="outlined"
+              autoFocus
+              placeholder="Enter resume name"
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setNameDialogVisible(false)}>Cancel</Button>
+            <Button 
+              mode="contained" 
+              onPress={handleCreateResume}
+              disabled={!resumeName.trim()}
+            >
+              Create
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }

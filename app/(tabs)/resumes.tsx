@@ -1,5 +1,5 @@
 import { View, StyleSheet, FlatList } from 'react-native';
-import { Appbar, Card, FAB, Text, IconButton, Menu } from 'react-native-paper';
+import { Appbar, Card, FAB, Text, IconButton, Menu, Portal, Dialog, TextInput, Button } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useResumeStore } from '@/store/resumeStore';
@@ -8,8 +8,11 @@ import { Resume } from '@/types';
 
 export default function ResumesScreen() {
   const router = useRouter();
-  const { resumes, loadResumes, deleteResume } = useResumeStore();
+  const { resumes, loadResumes, deleteResume, updateResume } = useResumeStore();
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
+  const [editTitleDialogVisible, setEditTitleDialogVisible] = useState(false);
+  const [editingResume, setEditingResume] = useState<Resume | null>(null);
+  const [newTitle, setNewTitle] = useState('');
 
   useEffect(() => {
     loadResumes();
@@ -21,6 +24,31 @@ export default function ResumesScreen() {
 
   const handleResumePress = (resume: Resume) => {
     router.push(`/resumes/${resume.id}`);
+  };
+
+  const handleEditResume = (resume: Resume) => {
+    setMenuVisible(null);
+    router.push(`/resumes/${resume.id}/edit`);
+  };
+
+  const handleEditTitle = (resume: Resume) => {
+    setMenuVisible(null);
+    setEditingResume(resume);
+    setNewTitle(resume.title);
+    setEditTitleDialogVisible(true);
+  };
+
+  const handleSaveTitle = async () => {
+    if (!editingResume || !newTitle.trim()) return;
+    
+    try {
+      await updateResume(editingResume.id, { title: newTitle.trim() });
+      setEditTitleDialogVisible(false);
+      setEditingResume(null);
+      setNewTitle('');
+    } catch (error) {
+      console.error('Error updating resume title:', error);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -59,10 +87,12 @@ export default function ResumesScreen() {
             }
           >
             <Menu.Item
-              onPress={() => {
-                setMenuVisible(null);
-                handleResumePress(item);
-              }}
+              onPress={() => handleEditTitle(item)}
+              title="Edit Title"
+              leadingIcon="rename-box"
+            />
+            <Menu.Item
+              onPress={() => handleEditResume(item)}
               title="Edit"
               leadingIcon="pencil"
             />
@@ -111,6 +141,39 @@ export default function ResumesScreen() {
         onPress={handleCreateResume}
         label="Create Resume"
       />
+
+      {/* Edit Title Dialog */}
+      <Portal>
+        <Dialog visible={editTitleDialogVisible} onDismiss={() => setEditTitleDialogVisible(false)}>
+          <Dialog.Title>Edit Resume Title</Dialog.Title>
+          <Dialog.Content>
+            <TextInput
+              label="Resume Title"
+              value={newTitle}
+              onChangeText={setNewTitle}
+              mode="outlined"
+              autoFocus
+              placeholder="Enter resume title"
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => {
+              setEditTitleDialogVisible(false);
+              setEditingResume(null);
+              setNewTitle('');
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              mode="contained" 
+              onPress={handleSaveTitle}
+              disabled={!newTitle.trim()}
+            >
+              Save
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }

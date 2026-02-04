@@ -66,7 +66,6 @@ export function PaginatedResume({ templateId, data }: PaginatedResumeProps) {
         setTotalPages(pages);
         setIsReady(true);
         
-        console.log('Measured:', { measuredHeight, pages, originalPageHeight, scale });
       }, 150);
     }
   }, [originalPageHeight, scale]);
