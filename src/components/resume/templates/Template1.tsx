@@ -137,7 +137,7 @@ export function Template1({ data }: Template1Props) {
           <View style={styles.divider} />
           {projects.map((project) => (
             <View key={project.id} style={styles.entryItem}>
-              <Text style={styles.entryTitle}>{project.name}</Text>
+              <Text style={[styles.entryTitle, { flex: 0 }]}>{project.name}</Text>
               <Text style={styles.projectDescription}>{project.description}</Text>
               {project.technologies && project.technologies.length > 0 && (
                 <Text style={styles.techStack}>
