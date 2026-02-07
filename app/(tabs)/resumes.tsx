@@ -1,4 +1,4 @@
-import { View, StyleSheet, FlatList, Pressable, Animated, Platform } from 'react-native';
+import { View, StyleSheet, FlatList, Pressable, Animated, Platform, Alert } from 'react-native';
 import {
   Text,
   Menu,
@@ -7,6 +7,7 @@ import {
   TextInput,
   Button,
   ActivityIndicator,
+  Snackbar,
 } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -17,6 +18,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { palette } from '@/theme/palette';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 /**
  * Template color mapping for visual distinction
@@ -95,6 +98,7 @@ interface ResumeCardProps {
   onPress: () => void;
   onEdit: () => void;
   onEditTitle: () => void;
+  onDownload: () => void;
   onDelete: () => void;
   menuVisible: boolean;
   onMenuOpen: () => void;
@@ -107,6 +111,7 @@ function ResumeCard({
   onPress,
   onEdit,
   onEditTitle,
+  onDownload,
   onDelete,
   menuVisible,
   onMenuOpen,
@@ -226,6 +231,12 @@ function ResumeCard({
               titleStyle={styles.menuItemText}
             />
             <Menu.Item
+              onPress={() => { onMenuClose(); onDownload(); }}
+              title="Download PDF"
+              leadingIcon="download-outline"
+              titleStyle={styles.menuItemText}
+            />
+            <Menu.Item
               onPress={() => { onMenuClose(); onDelete(); }}
               title="Delete"
               leadingIcon="trash-can-outline"
@@ -250,6 +261,9 @@ export default function ResumesScreen() {
   const [editingResume, setEditingResume] = useState<Resume | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [loading, setLoading] = useState(true);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const headerFade = useRef(new Animated.Value(0)).current;
 
@@ -301,6 +315,301 @@ export default function ResumesScreen() {
     }
   };
 
+  const generateResumeHTML = (resume: Resume) => {
+    const { personalInfo, experience, education, skills, projects, certifications, languages } = resume.data;
+    const templateId = resume.templateId;
+    
+    // Template-specific configurations
+    const templateConfig: Record<string, { primaryColor: string; headerBg?: string; headerTextColor?: string }> = {
+      template1: { primaryColor: '#000000' },
+      template2: { primaryColor: '#1e3a5f', headerBg: '#1e3a5f', headerTextColor: '#ffffff' },
+      template3: { primaryColor: '#0D9488' },
+      template4: { primaryColor: '#2563EB' },
+      template5: { primaryColor: '#c62828', headerBg: '#c62828', headerTextColor: '#ffffff' },
+    };
+
+    const config = templateConfig[templateId] || templateConfig.template1;
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              background-color: #ffffff;
+              color: #1a1a1a;
+            }
+            .container {
+              padding: 36px 40px;
+            }
+            .header {
+              ${config.headerBg ? `background-color: ${config.headerBg}; padding: 16px 40px; margin: -36px -40px 24px -40px;` : 'padding-bottom: 16px; margin-bottom: 24px; border-bottom: 1px solid #333;'}
+              text-align: center;
+            }
+            .name {
+              font-size: 24px;
+              font-weight: 700;
+              ${config.headerTextColor ? `color: ${config.headerTextColor};` : 'color: #000000;'}
+              letter-spacing: 1px;
+              text-transform: uppercase;
+              margin-bottom: 8px;
+            }
+            .contact-row {
+              display: flex;
+              flex-wrap: wrap;
+              justify-content: center;
+              gap: 0 16px;
+              ${config.headerTextColor ? `color: ${config.headerTextColor};` : 'color: #333333;'}
+              font-size: 11px;
+            }
+            .contact-item::after {
+              content: ' | ';
+              margin: 0 8px;
+              ${config.headerTextColor ? `color: rgba(255, 255, 255, 0.5);` : 'color: #666;'}
+            }
+            .contact-item:last-child::after {
+              display: none;
+            }
+            .section {
+              margin-bottom: 20px;
+            }
+            .section-title {
+              font-size: 13px;
+              font-weight: 700;
+              color: ${config.primaryColor};
+              letter-spacing: 1.5px;
+              text-transform: uppercase;
+              border-bottom: 2px solid ${config.primaryColor};
+              padding-bottom: 4px;
+              margin-bottom: 12px;
+            }
+            .summary-text {
+              font-size: 11px;
+              line-height: 16px;
+              color: #333333;
+              text-align: justify;
+            }
+            .entry-item {
+              margin-bottom: 14px;
+            }
+            .entry-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              margin-bottom: 3px;
+            }
+            .entry-title {
+              font-size: 12px;
+              font-weight: 700;
+              color: #000000;
+            }
+            .entry-subtitle {
+              font-size: 11px;
+              color: #555555;
+              font-style: italic;
+              margin-bottom: 4px;
+            }
+            .entry-date {
+              font-size: 10px;
+              color: #666666;
+              font-style: italic;
+              white-space: nowrap;
+            }
+            .bullet-list {
+              margin-top: 6px;
+              margin-left: 20px;
+            }
+            .bullet-item {
+              font-size: 10px;
+              color: #333333;
+              line-height: 15px;
+              margin-bottom: 3px;
+              list-style-type: disc;
+            }
+            .skills-row {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+            }
+            .skill-tag {
+              background-color: #f0f0f0;
+              padding: 6px 12px;
+              border-radius: 6px;
+              font-size: 10px;
+              color: #333;
+              border: 1px solid #e0e0e0;
+            }
+            .cert-row {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 6px;
+            }
+            .cert-name {
+              font-size: 11px;
+              font-weight: 600;
+              color: #000000;
+            }
+            .cert-details {
+              font-size: 10px;
+              color: #555555;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <!-- Header -->
+            <div class="header">
+              <div class="name">${personalInfo.fullName || resume.title || 'Untitled Resume'}</div>
+              <div class="contact-row">
+                ${personalInfo.email ? `<span class="contact-item">${personalInfo.email}</span>` : ''}
+                ${personalInfo.phone ? `<span class="contact-item">${personalInfo.phone}</span>` : ''}
+                ${personalInfo.location ? `<span class="contact-item">${personalInfo.location}</span>` : ''}
+                ${personalInfo.linkedIn ? `<span class="contact-item">${personalInfo.linkedIn}</span>` : ''}
+                ${personalInfo.website ? `<span class="contact-item">${personalInfo.website}</span>` : ''}
+              </div>
+            </div>
+
+            <!-- Professional Summary -->
+            ${personalInfo.summary ? `
+              <div class="section">
+                <div class="section-title">Professional Summary</div>
+                <div class="summary-text">${personalInfo.summary}</div>
+              </div>
+            ` : ''}
+
+            <!-- Professional Experience -->
+            ${experience && experience.length > 0 ? `
+              <div class="section">
+                <div class="section-title">Professional Experience</div>
+                ${experience.map(exp => `
+                  <div class="entry-item">
+                    <div class="entry-header">
+                      <div class="entry-title">${exp.jobTitle || 'Position'}</div>
+                      <div class="entry-date">${exp.startDate || ''} – ${exp.current ? 'Present' : exp.endDate || ''}</div>
+                    </div>
+                    <div class="entry-subtitle">${exp.company || 'Company'}${exp.location ? `, ${exp.location}` : ''}</div>
+                    ${exp.description && exp.description.length > 0 ? `
+                      <ul class="bullet-list">
+                        ${exp.description.map(desc => `<li class="bullet-item">${desc}</li>`).join('')}
+                      </ul>
+                    ` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+
+            <!-- Education -->
+            ${education && education.length > 0 ? `
+              <div class="section">
+                <div class="section-title">Education</div>
+                ${education.map(edu => `
+                  <div class="entry-item">
+                    <div class="entry-header">
+                      <div class="entry-title">${edu.degree || 'Degree'}</div>
+                      <div class="entry-date">${edu.startDate || ''} – ${edu.current ? 'Present' : edu.endDate || ''}</div>
+                    </div>
+                    <div class="entry-subtitle">${edu.school || 'School'}${edu.location ? `, ${edu.location}` : ''}</div>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+
+            <!-- Skills -->
+            ${skills && skills.length > 0 ? `
+              <div class="section">
+                <div class="section-title">Skills</div>
+                <div class="skills-row">
+                  ${skills.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Projects -->
+            ${projects && projects.length > 0 ? `
+              <div class="section">
+                <div class="section-title">Projects</div>
+                ${projects.map(proj => `
+                  <div class="entry-item">
+                    <div class="entry-title">${proj.name || 'Project'}</div>
+                    ${proj.description ? `<div class="summary-text" style="margin-top: 4px;">${proj.description}</div>` : ''}
+                    ${proj.technologies ? `<div style="font-size: 10px; color: #666; margin-top: 4px; font-style: italic;">Technologies: ${proj.technologies}</div>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+
+            <!-- Certifications -->
+            ${certifications && certifications.length > 0 ? `
+              <div class="section">
+                <div class="section-title">Certifications</div>
+                ${certifications.map(cert => `
+                  <div class="cert-row">
+                    <span class="cert-name">${cert.name || ''}</span>
+                    <span class="cert-details">${cert.issuer || ''}${cert.date ? `, ${cert.date}` : ''}</span>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+
+            <!-- Languages -->
+            ${languages && languages.length > 0 ? `
+              <div class="section">
+                <div class="section-title">Languages</div>
+                <div style="font-size: 11px; color: #333;">
+                  ${languages.map(lang => `${lang.language} (${lang.proficiency})`).join('  •  ')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        </body>
+      </html>
+    `;
+  };
+
+  const handleDownloadResume = async (resume: Resume) => {
+    if (isDownloading) return;
+
+    try {
+      setIsDownloading(true);
+      setSnackbarMessage('Generating PDF...');
+      setSnackbarVisible(true);
+
+      // Generate HTML content
+      const html = generateResumeHTML(resume);
+
+      // Create PDF
+      const { uri } = await Print.printToFileAsync({
+        html,
+        base64: false,
+      });
+
+      // Share/Save the PDF
+      const isAvailable = await Sharing.isAvailableAsync();
+      
+      if (isAvailable) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Save Resume',
+          UTI: 'com.adobe.pdf',
+        });
+
+        setSnackbarMessage('PDF ready to save! ✓');
+      } else {
+        setSnackbarMessage('Sharing is not available on this device');
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      setSnackbarMessage('Failed to generate PDF');
+    } finally {
+      setIsDownloading(false);
+      setTimeout(() => setSnackbarVisible(false), 2500);
+    }
+  };
+
   const renderResume = useCallback(
     ({ item, index }: { item: Resume; index: number }) => (
       <ResumeCard
@@ -309,13 +618,14 @@ export default function ResumesScreen() {
         onPress={() => handleResumePress(item)}
         onEdit={() => handleEditResume(item)}
         onEditTitle={() => handleEditTitle(item)}
+        onDownload={() => handleDownloadResume(item)}
         onDelete={() => handleDelete(item.id)}
         menuVisible={menuVisible === item.id}
         onMenuOpen={() => setMenuVisible(item.id)}
         onMenuClose={() => setMenuVisible(null)}
       />
     ),
-    [menuVisible]
+    [menuVisible, isDownloading]
   );
 
   if (loading) {
@@ -440,6 +750,16 @@ export default function ResumesScreen() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={2500}
+        style={styles.snackbar}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </View>
   );
 }
@@ -717,5 +1037,11 @@ const styles = StyleSheet.create({
   },
   dialogSaveButton: {
     borderRadius: 14,
+  },
+
+  // ── Snackbar ──
+  snackbar: {
+    backgroundColor: palette.textDark,
+    marginBottom: Platform.OS === 'ios' ? 90 : 80,
   },
 });

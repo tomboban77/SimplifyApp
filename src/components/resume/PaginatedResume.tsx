@@ -7,14 +7,15 @@ import { ResumeData } from '@/types';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Page dimensions - make it fill most of the screen
-const PAGE_HORIZONTAL_MARGIN = 16;
-const PAGE_VERTICAL_MARGIN = 20;
+const PAGE_HORIZONTAL_MARGIN = 20;
+const PAGE_VERTICAL_MARGIN = 12;
 const HEADER_HEIGHT = 64; // Appbar height
 const PAGE_TOP_PADDING = 40; // Top padding for each page (in original coordinates)
 const PAGE_BOTTOM_PADDING = 40; // Bottom padding for each page (in original coordinates)
+const PAGE_INDICATOR_HEIGHT = 70; // Space for page indicator at bottom
 
-// Calculate page dimensions to fit screen nicely
-const AVAILABLE_HEIGHT = SCREEN_HEIGHT - HEADER_HEIGHT - (PAGE_VERTICAL_MARGIN * 2) - 60; // 60 for indicator
+// Calculate page dimensions to fit screen nicely - give more space for content
+const AVAILABLE_HEIGHT = SCREEN_HEIGHT - HEADER_HEIGHT - PAGE_VERTICAL_MARGIN - PAGE_INDICATOR_HEIGHT;
 const PAGE_WIDTH = SCREEN_WIDTH - (PAGE_HORIZONTAL_MARGIN * 2);
 
 // A4 aspect ratio: width:height = 1:1.414 (210mm x 297mm)
@@ -155,7 +156,7 @@ export function PaginatedResume({ templateId, data }: PaginatedResumeProps) {
 
       {/* Main paginated display */}
       {isReady && contentHeight > 0 ? (
-        <>
+        <View style={styles.contentWrapper}>
           <ScrollView
             horizontal
             pagingEnabled
@@ -187,7 +188,7 @@ export function PaginatedResume({ templateId, data }: PaginatedResumeProps) {
                     }
                   ]}
                 >
-                  {/* Page container with shadow */}
+                  {/* Page container with enhanced shadow */}
                   <View 
                     style={[
                       styles.page, 
@@ -254,17 +255,19 @@ export function PaginatedResume({ templateId, data }: PaginatedResumeProps) {
 
           {/* Page indicator */}
           {totalPages > 1 && (
-            <View style={styles.pageIndicator}>
-              <Text style={styles.pageIndicatorText}>
-                {currentPage + 1} / {totalPages}
-              </Text>
+            <View style={styles.pageIndicatorContainer}>
+              <View style={styles.pageIndicator}>
+                <Text style={styles.pageIndicatorText}>
+                  {currentPage + 1} / {totalPages}
+                </Text>
+              </View>
             </View>
           )}
-        </>
+        </View>
       ) : (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#1a1a1a" />
-          <Text style={styles.loadingText}>Preparing preview...</Text>
+          <ActivityIndicator size="large" color="#5B47FB" />
+          <Text style={styles.loadingText}>Preparing your resume...</Text>
         </View>
       )}
     </View>
@@ -274,7 +277,7 @@ export function PaginatedResume({ templateId, data }: PaginatedResumeProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#f5f5f7',
   },
   measureContainer: {
     position: 'absolute',
@@ -283,50 +286,71 @@ const styles = StyleSheet.create({
     opacity: 0,
     zIndex: -1,
   },
+  contentWrapper: {
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
   scrollContent: {
-    paddingVertical: PAGE_VERTICAL_MARGIN,
+    paddingTop: PAGE_VERTICAL_MARGIN,
+    paddingBottom: PAGE_INDICATOR_HEIGHT,
     alignItems: 'center',
   },
   pageWrapper: {
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
   },
   page: {
     backgroundColor: '#ffffff',
-    borderRadius: 4,
+    borderRadius: 8,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   clipContainer: {
     overflow: 'hidden',
     backgroundColor: '#ffffff',
   },
-  pageIndicator: {
+  pageIndicatorContainer: {
     position: 'absolute',
-    bottom: 20,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(26, 26, 26, 0.9)',
-    paddingHorizontal: 20,
+    bottom: 16,
+    left: 0,
+    right: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
+  pageIndicator: {
+    backgroundColor: 'rgba(26, 26, 26, 0.92)',
+    paddingHorizontal: 22,
     paddingVertical: 10,
-    borderRadius: 24,
+    borderRadius: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   pageIndicatorText: {
     color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f5f5f7',
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: 16,
     color: '#666',
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '500',
   },
 });
