@@ -12,9 +12,7 @@ import { colors } from '@/theme';
 export default function SettingsScreen() {
   const router = useRouter();
   const [testing, setTesting] = useState(false);
-  const { isFirebaseEnabled, enableFirebase, disableFirebase } = useDocumentStore();
-  const { enableFirebase: enableResumeFirebase, disableFirebase: disableResumeFirebase } = useResumeStore();
-  const { enableFirebase: enableTemplateFirebase, disableFirebase: disableTemplateFirebase } = useTemplateStore();
+  const { isFirebaseEnabled } = useDocumentStore();
   const { user, logout, isLoading: authLoading } = useAuthStore();
 
   const handleTestConnection = async () => {
@@ -116,40 +114,23 @@ export default function SettingsScreen() {
           </Card>
         )}
 
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleLarge" style={styles.sectionTitle}>
-              Real-time Sync
-            </Text>
-            <Text variant="bodyMedium" style={styles.description}>
-              Enable Firebase to sync your documents, resumes, and templates to the cloud. Your data will be backed up and synced across devices.
-            </Text>
-            <View style={styles.switchRow}>
-              <Text variant="bodyLarge">Enable Firebase Sync</Text>
-              <Switch
-                value={isFirebaseEnabled}
-                onValueChange={(enabled) => {
-                  if (enabled) {
-                    enableFirebase();
-                    enableResumeFirebase();
-                    enableTemplateFirebase();
-                    Alert.alert('✅ Enabled', 'Firebase sync is now active. Your documents, resumes, and templates will be saved to the cloud.');
-                  } else {
-                    disableFirebase();
-                    disableResumeFirebase();
-                    disableTemplateFirebase();
-                    Alert.alert('ℹ️ Disabled', 'Firebase sync disabled. Using local storage only.');
-                  }
-                }}
-              />
-            </View>
-            {isFirebaseEnabled && (
-              <Text variant="bodySmall" style={styles.statusText}>
-                ✓ Real-time sync is active
+        {user && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleLarge" style={styles.sectionTitle}>
+                Data Sync
               </Text>
-            )}
-          </Card.Content>
-        </Card>
+              <Text variant="bodyMedium" style={styles.description}>
+                Your documents, resumes, and templates are automatically synced to Firebase when you're logged in. Data is backed up and synced across all your devices.
+              </Text>
+              {isFirebaseEnabled && (
+                <Text variant="bodySmall" style={styles.statusText}>
+                  ✓ Real-time sync is active
+                </Text>
+              )}
+            </Card.Content>
+          </Card>
+        )}
 
         <Card style={styles.card}>
           <Card.Content>

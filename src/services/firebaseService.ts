@@ -1,7 +1,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { initializeAuth, getReactNativePersistence, getAuth, Auth } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getFirestore, Firestore, collection, doc, setDoc, deleteDoc, getDocs, query, orderBy, Timestamp, onSnapshot, where } from 'firebase/firestore';
+import { getFirestore, Firestore, collection, doc, setDoc, deleteDoc, getDocs, query, Timestamp, onSnapshot, where } from 'firebase/firestore';
 import { Document, Resume, ResumeTemplate } from '@/types';
 
 // Firebase configuration - all values must come from environment variables
@@ -213,10 +213,10 @@ export const documentsService = {
       return () => {};
     }
 
+    // Filter by userId and sort in memory to avoid composite index requirement
     const q = query(
       collection(firestoreDB, 'documents'),
-      where('userId', '==', userId),
-      orderBy('updatedAt', 'desc')
+      where('userId', '==', userId)
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -233,6 +233,10 @@ export const documentsService = {
         };
         documents.push(doc);
       });
+      // Sort by updatedAt in memory (descending - newest first)
+      documents.sort((a, b) => 
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      );
       callback(documents);
     }, (error) => {
       console.error('❌ Firebase documents subscription error:', error);
@@ -299,10 +303,10 @@ export const resumesService = {
       return () => {};
     }
 
+    // Filter by userId and sort in memory to avoid composite index requirement
     const q = query(
       collection(firestoreDB, 'resumes'),
-      where('userId', '==', userId),
-      orderBy('updatedAt', 'desc')
+      where('userId', '==', userId)
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -320,6 +324,10 @@ export const resumesService = {
         };
         resumes.push(resume);
       });
+      // Sort by updatedAt in memory (descending - newest first)
+      resumes.sort((a, b) => 
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      );
       callback(resumes);
     }, (error) => {
       console.error('❌ Firebase resumes subscription error:', error);

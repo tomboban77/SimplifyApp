@@ -1,13 +1,11 @@
-import { View, StyleSheet, FlatList, Pressable, Animated } from 'react-native';
+import { View, StyleSheet, FlatList, Pressable, Animated, Platform } from 'react-native';
 import {
   Text,
-  IconButton,
   Menu,
   Portal,
   Dialog,
   TextInput,
   Button,
-  FAB,
   ActivityIndicator,
 } from 'react-native-paper';
 import { useRouter } from 'expo-router';
@@ -18,60 +16,72 @@ import { Resume } from '@/types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, radius, shadows, typography } from '@/theme';
+import { palette } from '@/theme/palette';
 
 /**
  * Template color mapping for visual distinction
  */
-const templateColors: Record<string, readonly string[] | string[]> = {
-  template1: colors.gradients.primary,
-  template2: colors.gradients.secondary,
-  template3: colors.gradients.accent,
-  template4: colors.gradients.ocean,
-  template5: colors.gradients.sunrise,
+const templateColors: Record<string, [string, string]> = {
+  template1: [palette.indigo, palette.indigoLight],
+  template2: [palette.coral, '#F97316'],
+  template3: [palette.teal, palette.tealLight],
+  template4: ['#2563EB', '#3B82F6'],
+  template5: [palette.amber, '#F59E0B'],
 };
 
-const getTemplateGradient = (templateId: string): readonly string[] | string[] => {
-  return templateColors[templateId] || colors.gradients.primary;
+const getTemplateGradient = (templateId: string): [string, string] => {
+  return templateColors[templateId] || [palette.indigo, palette.indigoLight];
 };
 
 /**
  * Empty State Component
  */
 function EmptyState({ onCreatePress }: { onCreatePress: () => void }) {
+  const bounceAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, { toValue: -6, duration: 1500, useNativeDriver: true }),
+        Animated.timing(bounceAnim, { toValue: 0, duration: 1500, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
   return (
     <View style={styles.emptyContainer}>
-      <LinearGradient
-        colors={[colors.primary.ghost, 'transparent']}
-        style={styles.emptyGradient}
-      >
-        <View style={styles.emptyIconContainer}>
+      <Animated.View style={[styles.emptyIconWrap, { transform: [{ translateY: bounceAnim }] }]}>
+        <View style={styles.emptyIconInner}>
           <MaterialCommunityIcons
-            name="file-document-outline"
-            size={48}
-            color={colors.primary.main}
+            name="file-account-outline"
+            size={44}
+            color={palette.indigo}
           />
         </View>
-        <Text style={styles.emptyTitle}>No Resumes Yet</Text>
-        <Text style={styles.emptyDescription}>
-          Create your first professional resume and stand out from the crowd.
-        </Text>
-        <Pressable style={styles.emptyButton} onPress={onCreatePress}>
-          <LinearGradient
-            colors={[...colors.gradients.primary] as [string, string, ...string[]]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.emptyButtonGradient}
-          >
-            <MaterialCommunityIcons
-              name="plus"
-              size={20}
-              color={colors.text.inverse}
-            />
-            <Text style={styles.emptyButtonText}>Create Resume</Text>
-          </LinearGradient>
-        </Pressable>
-      </LinearGradient>
+      </Animated.View>
+
+      <Text style={styles.emptyTitle}>Start Building Your Resume</Text>
+      <Text style={styles.emptySubtitle}>
+        Create your first professional resume{'\n'}and stand out from the crowd
+      </Text>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.emptyBtn,
+          pressed && { opacity: 0.88, transform: [{ scale: 0.97 }] },
+        ]}
+        onPress={onCreatePress}
+      >
+        <LinearGradient
+          colors={[palette.indigo, palette.indigoLight]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.emptyBtnInner}
+        >
+          <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+          <Text style={styles.emptyBtnText}>Create Resume</Text>
+        </LinearGradient>
+      </Pressable>
     </View>
   );
 }
@@ -81,6 +91,7 @@ function EmptyState({ onCreatePress }: { onCreatePress: () => void }) {
  */
 interface ResumeCardProps {
   resume: Resume;
+  index: number;
   onPress: () => void;
   onEdit: () => void;
   onEditTitle: () => void;
@@ -92,6 +103,7 @@ interface ResumeCardProps {
 
 function ResumeCard({
   resume,
+  index,
   onPress,
   onEdit,
   onEditTitle,
@@ -101,11 +113,30 @@ function ResumeCard({
   onMenuClose,
 }: ResumeCardProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateAnim = useRef(new Animated.Value(16)).current;
   const gradient = getTemplateGradient(resume.templateId);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 380,
+        delay: index * 70,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateAnim, {
+        toValue: 0,
+        duration: 420,
+        delay: index * 70,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.98,
+      toValue: 0.975,
       useNativeDriver: true,
       speed: 50,
       bounciness: 4,
@@ -121,122 +152,86 @@ function ResumeCard({
     }).start();
   };
 
-  const templateNumber = resume.templateId.replace('template', '');
-
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+    <Animated.View
+      style={{
+        transform: [{ scale: scaleAnim }, { translateY: translateAnim }],
+        opacity: fadeAnim,
+      }}
+    >
       <Pressable
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        style={({ pressed }) => [
-          styles.resumeCard,
-          pressed && styles.resumeCardPressed,
-        ]}
+        style={styles.resumeCard}
       >
-        {/* Left Gradient Accent */}
+        {/* Left accent bar */}
         <LinearGradient
-          colors={[...gradient] as [string, string, ...string[]]}
+          colors={gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
           style={styles.cardAccent}
         />
 
-        {/* Card Content */}
         <View style={styles.cardBody}>
-          {/* Header */}
-          <View style={styles.cardHeader}>
-            <View style={styles.cardTitleRow}>
-              <View style={styles.templateBadge}>
-                <LinearGradient
-                  colors={[...gradient] as [string, string, ...string[]]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.templateBadgeGradient}
-                >
-                  <Text style={styles.templateBadgeText}>T{templateNumber}</Text>
-                </LinearGradient>
-              </View>
-              <Text style={styles.cardTitle} numberOfLines={1}>
-                {resume.title}
-              </Text>
-            </View>
-
-            {/* Menu */}
-            <Menu
-              visible={menuVisible}
-              onDismiss={onMenuClose}
-              anchor={
-                <IconButton
-                  icon="dots-vertical"
-                  size={20}
-                  onPress={onMenuOpen}
-                  iconColor={colors.text.tertiary}
-                  style={styles.menuButton}
-                />
-              }
-              contentStyle={styles.menuContent}
-            >
-              <Menu.Item
-                onPress={() => {
-                  onMenuClose();
-                  onEditTitle();
-                }}
-                title="Rename"
-                leadingIcon="rename-box"
-                titleStyle={styles.menuItemText}
-              />
-              <Menu.Item
-                onPress={() => {
-                  onMenuClose();
-                  onEdit();
-                }}
-                title="Edit Content"
-                leadingIcon="pencil-outline"
-                titleStyle={styles.menuItemText}
-              />
-              <Menu.Item
-                onPress={() => {
-                  onMenuClose();
-                  onDelete();
-                }}
-                title="Delete"
-                leadingIcon="trash-can-outline"
-                titleStyle={[styles.menuItemText, styles.menuItemDanger]}
-              />
-            </Menu>
-          </View>
-
-          {/* Meta Info */}
-          <View style={styles.cardMeta}>
-            <View style={styles.metaItem}>
-              <MaterialCommunityIcons
-                name="clock-outline"
-                size={14}
-                color={colors.text.tertiary}
-              />
-              <Text style={styles.metaText}>
-                Updated {formatDateSafe(resume.updatedAt)}
-              </Text>
-            </View>
-            <View style={styles.metaDot} />
-            <View style={styles.metaItem}>
-              <MaterialCommunityIcons
-                name="palette-outline"
-                size={14}
-                color={colors.text.tertiary}
-              />
-              <Text style={styles.metaText}>Template {templateNumber}</Text>
-            </View>
-          </View>
-
-          {/* Quick Preview */}
-          <View style={styles.previewRow}>
-            <Text style={styles.previewLabel}>Click to preview & edit</Text>
+          {/* Gradient icon */}
+          <LinearGradient
+            colors={gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.cardIconGradient}
+          >
             <MaterialCommunityIcons
-              name="arrow-right"
-              size={16}
-              color={colors.primary.main}
+              name="file-account-outline"
+              size={22}
+              color="#fff"
             />
+          </LinearGradient>
+
+          {/* Text content */}
+          <View style={styles.cardTextContent}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {resume.title}
+            </Text>
+            <Text style={styles.cardDate}>
+              {formatDateSafe(resume.updatedAt)}
+            </Text>
           </View>
+
+          {/* Menu */}
+          <Menu
+            visible={menuVisible}
+            onDismiss={onMenuClose}
+            anchor={
+              <Pressable onPress={onMenuOpen} style={styles.menuBtn} hitSlop={8}>
+                <MaterialCommunityIcons
+                  name="dots-vertical"
+                  size={18}
+                  color={palette.textLight}
+                />
+              </Pressable>
+            }
+            contentStyle={styles.menuContent}
+          >
+            <Menu.Item
+              onPress={() => { onMenuClose(); onEditTitle(); }}
+              title="Rename"
+              leadingIcon="rename-box"
+              titleStyle={styles.menuItemText}
+            />
+            <Menu.Item
+              onPress={() => { onMenuClose(); onEdit(); }}
+              title="Edit Content"
+              leadingIcon="pencil-outline"
+              titleStyle={styles.menuItemText}
+            />
+            <Menu.Item
+              onPress={() => { onMenuClose(); onDelete(); }}
+              title="Delete"
+              leadingIcon="trash-can-outline"
+              titleStyle={[styles.menuItemText, { color: palette.danger }]}
+            />
+          </Menu>
         </View>
       </Pressable>
     </Animated.View>
@@ -244,7 +239,7 @@ function ResumeCard({
 }
 
 /**
- * ResumesScreen - Premium Resume Management
+ * ResumesScreen
  */
 export default function ResumesScreen() {
   const router = useRouter();
@@ -256,12 +251,15 @@ export default function ResumesScreen() {
   const [newTitle, setNewTitle] = useState('');
   const [loading, setLoading] = useState(true);
 
+  const headerFade = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     const load = async () => {
       await loadResumes();
       setLoading(false);
     };
     load();
+    Animated.timing(headerFade, { toValue: 1, duration: 450, useNativeDriver: true }).start();
   }, []);
 
   const handleCreateResume = () => {
@@ -304,9 +302,10 @@ export default function ResumesScreen() {
   };
 
   const renderResume = useCallback(
-    ({ item }: { item: Resume }) => (
+    ({ item, index }: { item: Resume; index: number }) => (
       <ResumeCard
         resume={item}
+        index={index}
         onPress={() => handleResumePress(item)}
         onEdit={() => handleEditResume(item)}
         onEditTitle={() => handleEditTitle(item)}
@@ -322,63 +321,79 @@ export default function ResumesScreen() {
   if (loading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={colors.primary.main} />
+        <ActivityIndicator size="large" color={palette.indigo} />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
+    <View style={styles.container}>
+      {/* ── Header — EXACT same structure as working Create screen ── */}
+      <LinearGradient
+        colors={[palette.headerBg, palette.headerBgEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.headerGradient, { paddingTop: insets.top }]}
+      >
+        <View style={styles.headerDecor1} />
+        <View style={styles.headerDecor2} />
+
+        <Animated.View style={[styles.headerInner, { opacity: headerFade }]}>
           <Text style={styles.headerTitle}>Resumes</Text>
           <Text style={styles.headerSubtitle}>
-            {resumes.length > 0
-              ? `${resumes.length} document${resumes.length > 1 ? 's' : ''}`
-              : 'Your professional documents'}
+            Manage and craft your professional resumes
           </Text>
-        </View>
+        </Animated.View>
+      </LinearGradient>
+
+      {/* ── Content ── */}
+      <View style={styles.contentArea}>
+        {/* Count chip */}
         {resumes.length > 0 && (
-          <Pressable
-            style={({ pressed }) => [
-              styles.headerButton,
-              pressed && styles.headerButtonPressed,
-            ]}
-            onPress={handleCreateResume}
-          >
-            <MaterialCommunityIcons
-              name="plus"
-              size={20}
-              color={colors.primary.main}
-            />
-          </Pressable>
+          <View style={styles.chipRow}>
+            <View style={styles.chip}>
+              <View style={[styles.chipDot, { backgroundColor: palette.indigo }]} />
+              <Text style={styles.chipText}>
+                {resumes.length} {resumes.length === 1 ? 'Resume' : 'Resumes'}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {resumes.length === 0 ? (
+          <EmptyState onCreatePress={handleCreateResume} />
+        ) : (
+          <FlatList
+            data={resumes}
+            renderItem={renderResume}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          />
         )}
       </View>
 
-      {/* Content */}
-      {resumes.length === 0 ? (
-        <EmptyState onCreatePress={handleCreateResume} />
-      ) : (
-        <FlatList
-          data={resumes}
-          renderItem={renderResume}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
-        />
-      )}
-
-      {/* FAB for quick access when scrolled */}
-      {resumes.length > 3 && (
-        <FAB
-          icon="plus"
-          style={styles.fab}
+      {/* FAB */}
+      {resumes.length > 0 && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.fabWrap,
+            { bottom: Platform.OS === 'ios' ? 90 : 80 },
+            pressed && { opacity: 0.88, transform: [{ scale: 0.92 }] },
+          ]}
           onPress={handleCreateResume}
-          color={colors.text.inverse}
-          customSize={56}
-        />
+        >
+          <LinearGradient
+            colors={[palette.indigo, palette.indigoLight]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.fab}
+          >
+            <MaterialCommunityIcons name="plus" size={26} color="#fff" />
+          </LinearGradient>
+          <View style={styles.fabShadow} />
+        </Pressable>
       )}
 
       {/* Edit Title Dialog */}
@@ -397,8 +412,8 @@ export default function ResumesScreen() {
               mode="outlined"
               autoFocus
               placeholder="Enter a memorable name"
-              outlineColor={colors.border.light}
-              activeOutlineColor={colors.primary.main}
+              outlineColor={palette.border}
+              activeOutlineColor={palette.indigo}
               style={styles.dialogInput}
             />
           </Dialog.Content>
@@ -409,7 +424,7 @@ export default function ResumesScreen() {
                 setEditingResume(null);
                 setNewTitle('');
               }}
-              textColor={colors.text.secondary}
+              textColor={palette.textMedium}
             >
               Cancel
             </Button>
@@ -417,7 +432,7 @@ export default function ResumesScreen() {
               mode="contained"
               onPress={handleSaveTitle}
               disabled={!newTitle.trim()}
-              buttonColor={colors.primary.main}
+              buttonColor={palette.indigo}
               style={styles.dialogSaveButton}
             >
               Save
@@ -429,239 +444,278 @@ export default function ResumesScreen() {
   );
 }
 
+// ─── Styles ── All header values copy-pasted from Create screen ──
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.default,
+    backgroundColor: palette.pageBg,
   },
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
-    backgroundColor: colors.background.default,
+  // ── Header — VALUES IDENTICAL TO CREATE SCREEN ──
+  headerGradient: {
+    paddingBottom: 22,
+    position: 'relative',
+    overflow: 'hidden',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  headerDecor1: {
+    position: 'absolute',
+    top: -50,
+    right: -40,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+  },
+  headerDecor2: {
+    position: 'absolute',
+    bottom: 10,
+    left: -30,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(14, 165, 233, 0.06)',
+  },
+  headerInner: {
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 4,
+    position: 'relative',
+    zIndex: 5,
   },
   headerTitle: {
-    ...typography.h1,
-    color: colors.text.primary,
-    marginBottom: spacing.xxs,
+    fontSize: 28,
+    fontWeight: '700',
+    color: palette.textOnDark,
+    marginBottom: 4,
+    letterSpacing: -0.6,
   },
   headerSubtitle: {
-    ...typography.bodyMedium,
-    color: colors.text.secondary,
+    fontSize: 14,
+    color: palette.textOnDarkSub,
+    letterSpacing: 0.1,
   },
-  headerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.lg,
-    backgroundColor: colors.primary.ghost,
+
+  // ── Content ──
+  contentArea: {
+    flex: 1,
+    paddingTop: 16,
+  },
+
+  // Chip
+  chipRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingBottom: 4,
+  },
+  chip: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: palette.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  headerButtonPressed: {
-    backgroundColor: colors.primary.muted,
+  chipDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: palette.textMedium,
   },
 
   // List
   list: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing['6xl'],
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    paddingBottom: 140,
   },
 
-  // Resume Card
+  // ── Resume Card ──
   resumeCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.background.paper,
-    borderRadius: radius.xl,
+    borderRadius: 18,
     overflow: 'hidden',
+    backgroundColor: palette.cardBg,
     borderWidth: 1,
-    borderColor: colors.border.light,
-    ...shadows.sm,
-  },
-  resumeCardPressed: {
-    backgroundColor: colors.interactive.hover,
-    borderColor: colors.primary.muted,
+    borderColor: palette.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
   cardAccent: {
-    width: 4,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3.5,
+    borderTopLeftRadius: 18,
+    borderBottomLeftRadius: 18,
+    zIndex: 1,
   },
   cardBody: {
-    flex: 1,
-    padding: spacing.lg,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.md,
-  },
-  cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    paddingVertical: 16,
+    paddingLeft: 20,
+    paddingRight: 10,
   },
-  templateBadge: {
-    marginRight: spacing.sm,
-  },
-  templateBadgeGradient: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.md,
+  cardIconGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 14,
   },
-  templateBadgeText: {
-    ...typography.labelSmall,
-    color: colors.text.inverse,
-    fontSize: 10,
+  cardTextContent: {
+    flex: 1,
+    minWidth: 0,
   },
   cardTitle: {
-    ...typography.h4,
-    color: colors.text.primary,
-    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: palette.textDark,
+    letterSpacing: -0.2,
+    marginBottom: 4,
   },
-  menuButton: {
-    margin: -spacing.sm,
+  cardDate: {
+    fontSize: 13,
+    color: palette.textLight,
+  },
+  menuBtn: {
+    padding: 8,
   },
   menuContent: {
-    backgroundColor: colors.background.paper,
-    borderRadius: radius.lg,
-    ...shadows.lg,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 8,
   },
   menuItemText: {
-    ...typography.bodyMedium,
-    color: colors.text.primary,
-  },
-  menuItemDanger: {
-    color: colors.error.main,
+    fontSize: 14,
+    color: palette.textDark,
   },
 
-  // Meta Info
-  cardMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  metaText: {
-    ...typography.caption,
-    color: colors.text.tertiary,
-  },
-  metaDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: colors.text.tertiary,
-    marginHorizontal: spacing.sm,
-  },
-
-  // Preview Row
-  previewRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.light,
-  },
-  previewLabel: {
-    ...typography.labelMedium,
-    color: colors.primary.main,
-  },
-
-  // Empty State
+  // ── Empty State ──
   emptyContainer: {
     flex: 1,
-    padding: spacing.xl,
-  },
-  emptyGradient: {
-    flex: 1,
-    borderRadius: radius['2xl'],
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing['3xl'],
+    paddingHorizontal: 40,
   },
-  emptyIconContainer: {
+  emptyIconWrap: {
+    marginBottom: 24,
+  },
+  emptyIconInner: {
     width: 96,
     height: 96,
-    borderRadius: radius['2xl'],
-    backgroundColor: colors.background.paper,
+    borderRadius: 30,
+    backgroundColor: palette.indigoMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xl,
-    ...shadows.md,
+    borderWidth: 1,
+    borderColor: palette.indigo + '15',
   },
   emptyTitle: {
-    ...typography.h2,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
+    fontSize: 24,
+    fontWeight: '700',
+    color: palette.textDark,
+    marginBottom: 8,
+    letterSpacing: -0.5,
     textAlign: 'center',
   },
-  emptyDescription: {
-    ...typography.bodyMedium,
-    color: colors.text.secondary,
+  emptySubtitle: {
+    fontSize: 15,
+    color: palette.textLight,
     textAlign: 'center',
-    marginBottom: spacing['2xl'],
-    maxWidth: 280,
-    lineHeight: 24,
+    lineHeight: 22,
+    marginBottom: 32,
   },
-  emptyButton: {
-    borderRadius: radius.xl,
+  emptyBtn: {
+    borderRadius: 16,
     overflow: 'hidden',
-    ...shadows.primary,
   },
-  emptyButtonGradient: {
+  emptyBtnInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing['2xl'],
-    gap: spacing.sm,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    gap: 8,
   },
-  emptyButtonText: {
-    ...typography.labelLarge,
-    color: colors.text.inverse,
+  emptyBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 
-  // FAB
-  fab: {
+  // ── FAB ──
+  fabWrap: {
     position: 'absolute',
-    right: spacing.xl,
-    bottom: spacing.xl,
-    backgroundColor: colors.primary.main,
-    borderRadius: radius.xl,
-    ...shadows.primary,
+    right: 24,
+    zIndex: 1000,
+  },
+  fab: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabShadow: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    right: 6,
+    bottom: -4,
+    borderRadius: 20,
+    backgroundColor: palette.indigo,
+    opacity: 0.2,
+    zIndex: -1,
   },
 
-  // Dialog
+  // ── Dialog ──
   dialog: {
-    backgroundColor: colors.background.paper,
-    borderRadius: radius['2xl'],
+    backgroundColor: palette.cardBg,
+    borderRadius: 20,
   },
   dialogTitle: {
-    ...typography.h3,
-    color: colors.text.primary,
+    fontSize: 20,
+    fontWeight: '700',
+    color: palette.textDark,
+    letterSpacing: -0.3,
   },
   dialogInput: {
-    backgroundColor: colors.background.paper,
+    backgroundColor: palette.cardBg,
   },
   dialogActions: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    gap: spacing.sm,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 10,
   },
   dialogSaveButton: {
-    borderRadius: radius.lg,
+    borderRadius: 14,
   },
 });

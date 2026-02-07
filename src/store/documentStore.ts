@@ -18,12 +18,41 @@ interface DocumentState {
 
 const STORAGE_KEY = '@documents';
 
-export const useDocumentStore = create<DocumentState>((set, get) => ({
-  documents: [],
-  isFirebaseEnabled: false,
-  unsubscribeFirebase: null,
+export const useDocumentStore = create<DocumentState>((set, get) => {
+  // Helper function to enable/disable Firebase based on auth state
+  const syncFirebaseState = (user: any) => {
+    if (user) {
+      // User is logged in - always enable Firebase sync
+      if (!get().isFirebaseEnabled) {
+        get().enableFirebase();
+      }
+    } else {
+      // User logged out - disable Firebase
+      if (get().isFirebaseEnabled) {
+        get().disableFirebase();
+      }
+    }
+  };
 
-  enableFirebase: () => {
+  // Subscribe to auth state changes to automatically enable/disable Firebase
+  // This ensures Firebase sync is always on when user is logged in
+  useAuthStore.subscribe((state) => {
+    syncFirebaseState(state.user);
+  });
+
+  // Check immediately if user is already authenticated (for app reloads)
+  const currentUser = useAuthStore.getState().user;
+  if (currentUser) {
+    // Use setTimeout to ensure store is fully initialized
+    setTimeout(() => syncFirebaseState(currentUser), 0);
+  }
+
+  return {
+    documents: [],
+    isFirebaseEnabled: false,
+    unsubscribeFirebase: null,
+
+    enableFirebase: () => {
     const { unsubscribeFirebase } = get();
     if (unsubscribeFirebase) {
       unsubscribeFirebase(); // Clean up existing subscription
@@ -158,4 +187,5 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
     set({ documents });
   },
-}));
+  };
+});

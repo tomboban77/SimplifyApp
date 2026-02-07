@@ -1,13 +1,14 @@
-import { View, StyleSheet, FlatList, Pressable, Animated, Platform } from 'react-native';
 import {
-  Text,
-  Searchbar,
-  IconButton,
-  Menu,
-  Snackbar,
-  FAB,
-  ActivityIndicator,
-} from 'react-native-paper';
+  View,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  Animated,
+  Platform,
+  TextInput,
+  Dimensions,
+} from 'react-native';
+import { Text, Menu, Snackbar } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useDocumentStore } from '@/store/documentStore';
@@ -18,7 +19,10 @@ import { useOffline } from '@/hooks/useOffline';
 import { DocumentSkeleton } from '@/components/SkeletonLoader';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, radius, shadows, typography } from '@/theme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type DocumentItem = {
   id: string;
@@ -26,6 +30,51 @@ type DocumentItem = {
   updatedAt: string;
   type: 'document' | 'resume';
   route: string;
+};
+
+// ─── Palette ────────────────────────────────────────────
+// Warm sand base + deep navy header + rich accents
+const palette = {
+  // Backgrounds
+  pageBg: '#F6F4F0',          // Warm ivory/sand
+  headerBg: '#1B1F3B',        // Deep navy for header contrast
+  headerBgEnd: '#2A2F52',
+  cardBg: '#FFFFFF',
+  cardBgPressed: '#FAFAF8',
+  surfaceMuted: '#EFEДЕ9',     // Subtle warm grey
+
+  // Borders
+  border: 'rgba(0, 0, 0, 0.06)',
+  borderMedium: 'rgba(0, 0, 0, 0.10)',
+  borderOnDark: 'rgba(255, 255, 255, 0.12)',
+
+  // Accent colors
+  indigo: '#4F46E5',
+  indigoLight: '#6366F1',
+  indigoMuted: 'rgba(79, 70, 229, 0.08)',
+  indigoBg: 'rgba(79, 70, 229, 0.06)',
+
+  teal: '#0D9488',
+  tealLight: '#14B8A6',
+  tealMuted: 'rgba(13, 148, 136, 0.08)',
+  tealBg: 'rgba(13, 148, 136, 0.06)',
+
+  coral: '#E87461',
+  coralMuted: 'rgba(232, 116, 97, 0.08)',
+
+  amber: '#D97706',
+  amberMuted: 'rgba(217, 119, 6, 0.08)',
+
+  // Text
+  textDark: '#1A1D2E',
+  textMedium: '#4A4D5E',
+  textLight: '#8B8E9F',
+  textOnDark: '#FFFFFF',
+  textOnDarkSub: 'rgba(255, 255, 255, 0.7)',
+
+  // Utility
+  danger: '#EF4444',
+  dangerMuted: 'rgba(239, 68, 68, 0.08)',
 };
 
 /**
@@ -37,24 +86,25 @@ const getTypeConfig = (type: DocumentItem['type']) => {
       return {
         label: 'Resume',
         icon: 'file-account-outline' as const,
-        color: colors.primary.main,
-        bgColor: colors.primary.muted,
+        color: palette.indigo,
+        accentGradient: [palette.indigo, palette.indigoLight] as [string, string],
+        useGradientIcon: true,
       };
     default:
       return {
         label: 'Document',
         icon: 'file-document-outline' as const,
-        color: colors.secondary.main,
-        bgColor: colors.secondary.muted,
+        color: palette.coral,
+        accentGradient: [palette.coral, '#F97316'] as [string, string],
+        useGradientIcon: true,
       };
   }
 };
 
-/**
- * Document Card Component
- */
+// ─── Document Card ───────────────────────────────────────
 interface DocumentCardProps {
   item: DocumentItem;
+  index: number;
   onPress: () => void;
   onDelete: () => void;
   menuVisible: boolean;
@@ -64,6 +114,7 @@ interface DocumentCardProps {
 
 function DocumentCard({
   item,
+  index,
   onPress,
   onDelete,
   menuVisible,
@@ -71,11 +122,30 @@ function DocumentCard({
   onMenuClose,
 }: DocumentCardProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateAnim = useRef(new Animated.Value(16)).current;
   const typeConfig = getTypeConfig(item.type);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 380,
+        delay: index * 70,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateAnim, {
+        toValue: 0,
+        duration: 420,
+        delay: index * 70,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.98,
+      toValue: 0.975,
       useNativeDriver: true,
       speed: 50,
       bounciness: 4,
@@ -92,121 +162,145 @@ function DocumentCard({
   };
 
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+    <Animated.View
+      style={{
+        transform: [{ scale: scaleAnim }, { translateY: translateAnim }],
+        opacity: fadeAnim,
+      }}
+    >
       <Pressable
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        style={({ pressed }) => [
-          styles.card,
-          { borderLeftColor: typeConfig.color },
-          pressed && styles.cardPressed,
-        ]}
+        style={styles.card}
       >
-        {/* Icon */}
-        <View style={[styles.cardIcon, { backgroundColor: typeConfig.bgColor }]}>
-          <MaterialCommunityIcons
-            name={typeConfig.icon}
-            size={24}
-            color={typeConfig.color}
-          />
-        </View>
+        {/* Left accent bar */}
+        <LinearGradient
+          colors={typeConfig.accentGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.cardAccent}
+        />
 
-        {/* Content */}
-        <View style={styles.cardContent}>
-          <Text style={styles.cardTitle} numberOfLines={1}>
-            {item.title}
-          </Text>
-          <View style={styles.cardMeta}>
-            <View style={[styles.typeBadge, { backgroundColor: typeConfig.bgColor }]}>
-              <Text style={[styles.typeBadgeText, { color: typeConfig.color }]}>
-                {typeConfig.label}
-              </Text>
-            </View>
-            <View style={styles.metaDot} />
-            <Text style={styles.dateText}>{formatDateSafe(item.updatedAt)}</Text>
-          </View>
-        </View>
-
-        {/* Menu */}
-        <Menu
-          visible={menuVisible}
-          onDismiss={onMenuClose}
-          anchor={
-            <IconButton
-              icon="dots-vertical"
-              size={20}
-              onPress={onMenuOpen}
-              iconColor={colors.text.tertiary}
-              style={styles.menuButton}
+        <View style={styles.cardBody}>
+          {/* Gradient icon — matches Create screen */}
+          <LinearGradient
+            colors={typeConfig.accentGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.cardIconGradient}
+          >
+            <MaterialCommunityIcons
+              name={typeConfig.icon}
+              size={22}
+              color="#fff"
             />
-          }
-          contentStyle={styles.menuContent}
-        >
-          <Menu.Item
-            onPress={() => {
-              onMenuClose();
-              onPress();
-            }}
-            title="Open"
-            leadingIcon="open-in-new"
-            titleStyle={styles.menuItemText}
-          />
-          <Menu.Item
-            onPress={() => {
-              onMenuClose();
-              onDelete();
-            }}
-            title="Delete"
-            leadingIcon="trash-can-outline"
-            titleStyle={[styles.menuItemText, styles.menuItemDanger]}
-          />
-        </Menu>
+          </LinearGradient>
+
+          {/* Text */}
+          <View style={styles.cardText}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {item.title}
+            </Text>
+            <View style={styles.cardMeta}>
+              <View style={[styles.typePill]}>
+                <View style={[styles.typeDot, { backgroundColor: typeConfig.color }]} />
+                <Text style={[styles.typeLabel, { color: typeConfig.color }]}>
+                  {typeConfig.label}
+                </Text>
+              </View>
+              <View style={styles.dateSeparator} />
+              <Text style={styles.cardDate}>{formatDateSafe(item.updatedAt)}</Text>
+            </View>
+          </View>
+
+          {/* Menu */}
+          <Menu
+            visible={menuVisible}
+            onDismiss={onMenuClose}
+            anchor={
+              <Pressable onPress={onMenuOpen} style={styles.menuBtn} hitSlop={8}>
+                <MaterialCommunityIcons
+                  name="dots-vertical"
+                  size={18}
+                  color={palette.textLight}
+                />
+              </Pressable>
+            }
+            contentStyle={styles.menuContent}
+          >
+            <Menu.Item
+              onPress={() => { onMenuClose(); onPress(); }}
+              title="Open"
+              leadingIcon="open-in-new"
+              titleStyle={styles.menuItemText}
+            />
+            <Menu.Item
+              onPress={() => { onMenuClose(); onDelete(); }}
+              title="Delete"
+              leadingIcon="trash-can-outline"
+              titleStyle={[styles.menuItemText, { color: palette.danger }]}
+            />
+          </Menu>
+        </View>
       </Pressable>
     </Animated.View>
   );
 }
 
-/**
- * Empty State Component
- */
+// ─── Empty State ─────────────────────────────────────────
 function EmptyState() {
   const router = useRouter();
+  const bounceAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, { toValue: -6, duration: 1500, useNativeDriver: true }),
+        Animated.timing(bounceAnim, { toValue: 0, duration: 1500, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
 
   return (
     <View style={styles.emptyContainer}>
-      <View style={styles.emptyIconContainer}>
-        <MaterialCommunityIcons
-          name="folder-open-outline"
-          size={48}
-          color={colors.text.tertiary}
-        />
-      </View>
-      <Text style={styles.emptyTitle}>No Documents Yet</Text>
-      <Text style={styles.emptyDescription}>
-        Create your first document to get started
+      <Animated.View style={[styles.emptyIconWrap, { transform: [{ translateY: bounceAnim }] }]}>
+        <View style={styles.emptyIconInner}>
+          <MaterialCommunityIcons
+            name="text-box-plus-outline"
+            size={44}
+            color={palette.indigo}
+          />
+        </View>
+      </Animated.View>
+
+      <Text style={styles.emptyTitle}>Your workspace awaits</Text>
+      <Text style={styles.emptySubtitle}>
+        Create your first document or resume{'\n'}to get started
       </Text>
+
       <Pressable
         style={({ pressed }) => [
-          styles.emptyButton,
-          pressed && styles.emptyButtonPressed,
+          styles.emptyBtn,
+          pressed && { opacity: 0.88, transform: [{ scale: 0.97 }] },
         ]}
         onPress={() => router.push('/(tabs)/create')}
       >
-        <MaterialCommunityIcons
-          name="plus"
-          size={20}
-          color={colors.text.inverse}
-        />
-        <Text style={styles.emptyButtonText}>Create Document</Text>
+        <LinearGradient
+          colors={[palette.indigo, '#6366F1']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.emptyBtnInner}
+        >
+          <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+          <Text style={styles.emptyBtnText}>Create New</Text>
+        </LinearGradient>
       </Pressable>
     </View>
   );
 }
 
-/**
- * DocumentsScreen - Main documents list
- */
+// ─── Main Screen ─────────────────────────────────────────
 export default function DocumentsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -219,6 +313,9 @@ export default function DocumentsScreen() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const handleError = useErrorHandler({ showAlert: false });
   const isOffline = useOffline();
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  const headerFade = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const initialize = async () => {
@@ -232,9 +329,9 @@ export default function DocumentsScreen() {
       }
     };
     initialize();
+    Animated.timing(headerFade, { toValue: 1, duration: 450, useNativeDriver: true }).start();
   }, []);
 
-  // Combine all documents into a single list
   const allDocuments = useMemo<DocumentItem[]>(() => {
     const items: DocumentItem[] = [
       ...documents.map((doc) => ({
@@ -252,8 +349,6 @@ export default function DocumentsScreen() {
         route: `/resumes/${resume.id}`,
       })),
     ];
-
-    // Sort by updated date (newest first)
     return items.sort(
       (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
@@ -263,6 +358,9 @@ export default function DocumentsScreen() {
     doc.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const resumeCount = filteredDocuments.filter((d) => d.type === 'resume').length;
+  const docCount = filteredDocuments.filter((d) => d.type === 'document').length;
+
   const handleDelete = async (item: DocumentItem) => {
     try {
       if (item.type === 'resume') {
@@ -270,22 +368,18 @@ export default function DocumentsScreen() {
       } else {
         await deleteDocument(item.id);
       }
-      setSnackbarMessage(
-        `${getTypeConfig(item.type).label} deleted successfully`
-      );
+      setSnackbarMessage(`${getTypeConfig(item.type).label} deleted`);
       setSnackbarVisible(true);
     } catch (error) {
-      handleError(
-        error,
-        `Failed to delete ${getTypeConfig(item.type).label.toLowerCase()}. Please try again.`
-      );
+      handleError(error, `Failed to delete ${getTypeConfig(item.type).label.toLowerCase()}`);
     }
   };
 
   const renderDocument = useCallback(
-    ({ item }: { item: DocumentItem }) => (
+    ({ item, index }: { item: DocumentItem; index: number }) => (
       <DocumentCard
         item={item}
+        index={index}
         onPress={() => router.push(item.route)}
         onDelete={() => handleDelete(item)}
         menuVisible={menuVisible === `${item.type}-${item.id}`}
@@ -297,317 +391,564 @@ export default function DocumentsScreen() {
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Documents</Text>
-          <Text style={styles.headerSubtitle}>
-            {allDocuments.length > 0
-              ? `${allDocuments.length} item${allDocuments.length > 1 ? 's' : ''}`
-              : 'All your files in one place'}
-          </Text>
-        </View>
-        <Pressable
-          style={({ pressed }) => [
-            styles.settingsButton,
-            pressed && styles.settingsButtonPressed,
-          ]}
-          onPress={() => router.push('/settings')}
-        >
-          <MaterialCommunityIcons
-            name="cog-outline"
-            size={22}
-            color={colors.text.secondary}
-          />
-        </Pressable>
-      </View>
+    <View style={styles.container}>
+      {/* ── Dark Header Section ── */}
+      <LinearGradient
+        colors={[palette.headerBg, palette.headerBgEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.headerGradient, { paddingTop: insets.top }]}
+      >
+        {/* Decorative shapes */}
+        <View style={styles.headerDecor1} />
+        <View style={styles.headerDecor2} />
 
-      {/* Search */}
-      <View style={styles.searchContainer}>
-        <Searchbar
-          placeholder="Search documents..."
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-          style={styles.searchbar}
-          inputStyle={styles.searchInput}
-          iconColor={colors.text.tertiary}
-          placeholderTextColor={colors.text.tertiary}
-        />
-      </View>
-
-      {/* Content */}
-      {loading ? (
-        <View style={styles.list}>
-          {[1, 2, 3].map((i) => (
-            <DocumentSkeleton key={i} />
-          ))}
-        </View>
-      ) : filteredDocuments.length === 0 && searchQuery === '' ? (
-        <EmptyState />
-      ) : (
-        <FlatList
-          data={filteredDocuments}
-          keyExtractor={(item) => `${item.type}-${item.id}`}
-          renderItem={renderDocument}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
-          ListEmptyComponent={
-            <View style={styles.noResultsContainer}>
-              <MaterialCommunityIcons
-                name="file-search-outline"
-                size={48}
-                color={colors.text.tertiary}
-              />
-              <Text style={styles.noResultsText}>
-                No documents match "{searchQuery}"
-              </Text>
+        <Animated.View style={[styles.headerInner, { opacity: headerFade }]}>
+          <View style={styles.headerLeft}>
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.headerTitle}>Workspace</Text>
+              {allDocuments.length > 0 && (
+                <View style={styles.headerBadge}>
+                  <Text style={styles.headerBadgeText}>{allDocuments.length}</Text>
+                </View>
+              )}
             </View>
-          }
-        />
-      )}
+            <Text style={styles.headerSubtitle}>
+              {allDocuments.length > 0
+                ? `${resumeCount} resume${resumeCount !== 1 ? 's' : ''} · ${docCount} document${docCount !== 1 ? 's' : ''}`
+                : 'Start building something great'}
+            </Text>
+          </View>
 
-      {/* Offline Snackbar */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsBtn,
+              pressed && styles.settingsBtnPressed,
+            ]}
+            onPress={() => router.push('/settings')}
+          >
+            <MaterialCommunityIcons name="cog-outline" size={20} color={palette.textOnDarkSub} />
+          </Pressable>
+        </Animated.View>
+
+        {/* Search overlapping the boundary */}
+        <View style={styles.searchOuter}>
+          <View style={[styles.searchBox, searchFocused && styles.searchBoxFocused]}>
+            <MaterialCommunityIcons
+              name="magnify"
+              size={20}
+              color={searchFocused ? palette.indigo : palette.textLight}
+            />
+            <TextInput
+              placeholder="Search documents..."
+              placeholderTextColor={palette.textLight}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              style={styles.searchInput}
+              selectionColor={palette.indigo}
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                <MaterialCommunityIcons name="close-circle" size={18} color={palette.textLight} />
+              </Pressable>
+            )}
+          </View>
+        </View>
+      </LinearGradient>
+
+      {/* ── Light Content Section ── */}
+      <View style={styles.contentArea}>
+        {/* Quick filter chips */}
+        {!loading && allDocuments.length > 0 && (
+          <View style={styles.chipRow}>
+            <View style={styles.chip}>
+              <View style={[styles.chipDot, { backgroundColor: palette.indigo }]} />
+              <Text style={styles.chipText}>{resumeCount} Resume{resumeCount !== 1 ? 's' : ''}</Text>
+            </View>
+            <View style={styles.chip}>
+              <View style={[styles.chipDot, { backgroundColor: palette.coral }]} />
+              <Text style={styles.chipText}>{docCount} Document{docCount !== 1 ? 's' : ''}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Content */}
+        {loading ? (
+          <View style={styles.list}>
+            {[1, 2, 3].map((i) => (
+              <DocumentSkeleton key={i} />
+            ))}
+          </View>
+        ) : filteredDocuments.length === 0 && searchQuery === '' ? (
+          <EmptyState />
+        ) : (
+          <FlatList
+            data={filteredDocuments}
+            keyExtractor={(item) => `${item.type}-${item.id}`}
+            renderItem={renderDocument}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+            ListEmptyComponent={
+              <View style={styles.noResults}>
+                <View style={styles.noResultsIcon}>
+                  <MaterialCommunityIcons name="file-search-outline" size={36} color={palette.textLight} />
+                </View>
+                <Text style={styles.noResultsTitle}>No matches for "{searchQuery}"</Text>
+                <Text style={styles.noResultsHint}>Try a different search term</Text>
+              </View>
+            }
+          />
+        )}
+      </View>
+
+      {/* Offline */}
       {isOffline && (
-        <Snackbar
-          visible={isOffline}
-          onDismiss={() => {}}
-          duration={Number.MAX_SAFE_INTEGER}
-          style={styles.offlineSnackbar}
-        >
-          You're offline. Changes will sync when you're back online.
-        </Snackbar>
+        <View style={[styles.offlineBanner, { bottom: Platform.OS === 'ios' ? 100 : 90 }]}>
+          <MaterialCommunityIcons name="wifi-off" size={16} color={palette.amber} />
+          <Text style={styles.offlineText}>You're offline — changes will sync later</Text>
+        </View>
       )}
 
-      {/* Success Snackbar */}
+      {/* Snackbar */}
       <Snackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
-        duration={3000}
+        duration={2500}
         style={styles.snackbar}
       >
         {snackbarMessage}
       </Snackbar>
 
       {/* FAB */}
-      <FAB
-        icon="plus"
-        style={styles.fab}
+      <Pressable
+        style={({ pressed }) => [
+          styles.fabWrap,
+          { bottom: Platform.OS === 'ios' ? 90 : 80 },
+          pressed && { opacity: 0.88, transform: [{ scale: 0.92 }] },
+        ]}
         onPress={() => router.push('/(tabs)/create')}
-        color={colors.text.inverse}
-        customSize={56}
-      />
+      >
+        <LinearGradient
+          colors={[palette.indigo, '#6366F1']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.fab}
+        >
+          <MaterialCommunityIcons name="plus" size={26} color="#fff" />
+        </LinearGradient>
+        <View style={styles.fabShadow} />
+      </Pressable>
     </View>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.default,
+    backgroundColor: palette.pageBg,
   },
 
-  // Header
-  header: {
+  // ── Header (Dark) ──
+  headerGradient: {
+    paddingBottom: 44,
+    position: 'relative',
+    overflow: 'hidden',
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  headerDecor1: {
+    position: 'absolute',
+    top: -40,
+    right: -30,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+  },
+  headerDecor2: {
+    position: 'absolute',
+    bottom: 20,
+    left: -40,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(14, 165, 233, 0.06)',
+  },
+  headerInner: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
+    gap: 10,
+    marginBottom: 4,
   },
   headerTitle: {
-    ...typography.h1,
-    color: colors.text.primary,
-    marginBottom: spacing.xxs,
+    fontSize: 30,
+    fontWeight: '700',
+    color: palette.textOnDark,
+    letterSpacing: -0.8,
+  },
+  headerBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  headerBadgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.85)',
   },
   headerSubtitle: {
-    ...typography.bodyMedium,
-    color: colors.text.secondary,
+    fontSize: 14,
+    color: palette.textOnDarkSub,
+    letterSpacing: 0.1,
   },
-  settingsButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.lg,
-    backgroundColor: colors.background.sunken,
+  settingsBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  settingsButtonPressed: {
-    backgroundColor: colors.border.light,
+  settingsBtnPressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
   },
 
-  // Search
-  searchContainer: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.md,
+  // ── Search (overlaps header/content boundary) ──
+  searchOuter: {
+    paddingHorizontal: 24,
+    marginBottom: -28, // Pull into content area
   },
-  searchbar: {
-    borderRadius: radius.lg,
-    backgroundColor: colors.background.paper,
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    height: 52,
+    gap: 10,
+    // Soft shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 6,
     borderWidth: 1,
-    borderColor: colors.border.light,
-    elevation: 0,
-    shadowOpacity: 0,
+    borderColor: 'rgba(0, 0, 0, 0.04)',
+  },
+  searchBoxFocused: {
+    borderColor: palette.indigo + '35',
+    shadowColor: palette.indigo,
+    shadowOpacity: 0.12,
   },
   searchInput: {
-    ...typography.bodyMedium,
-    color: colors.text.primary,
+    flex: 1,
+    fontSize: 15,
+    color: palette.textDark,
+    paddingVertical: 0,
+  },
+
+  // ── Content Area (Light) ──
+  contentArea: {
+    flex: 1,
+    paddingTop: 16,
+  },
+
+  // Chips
+  chipRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 4,
+    gap: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: palette.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  chipDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: palette.textMedium,
   },
 
   // List
   list: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing['6xl'],
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    paddingBottom: 140,
   },
 
-  // Card
+  // ── Card ──
   card: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: palette.cardBg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  cardAccent: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3.5,
+    borderTopLeftRadius: 18,
+    borderBottomLeftRadius: 18,
+    zIndex: 1,
+  },
+  cardBody: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background.paper,
-    borderRadius: radius.xl,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-    borderLeftWidth: 4,
-    ...shadows.sm,
+    paddingVertical: 16,
+    paddingLeft: 20,
+    paddingRight: 10,
   },
-  cardPressed: {
-    backgroundColor: colors.interactive.hover,
-    borderColor: colors.primary.muted,
-  },
-  cardIcon: {
+  cardIconGradient: {
     width: 48,
     height: 48,
-    borderRadius: radius.lg,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.lg,
+    marginRight: 14,
   },
-  cardContent: {
+  cardText: {
     flex: 1,
+    minWidth: 0,
   },
   cardTitle: {
-    ...typography.h4,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
+    fontSize: 16,
+    fontWeight: '600',
+    color: palette.textDark,
+    marginBottom: 6,
+    letterSpacing: -0.2,
   },
   cardMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
-  typeBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: radius.sm,
+  typePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 5,
   },
-  typeBadgeText: {
-    ...typography.labelSmall,
-    fontSize: 10,
+  typeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
   },
-  metaDot: {
+  typeLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  dateSeparator: {
     width: 3,
     height: 3,
     borderRadius: 2,
-    backgroundColor: colors.text.tertiary,
-    marginHorizontal: spacing.sm,
+    backgroundColor: palette.textLight,
+    opacity: 0.5,
   },
-  dateText: {
-    ...typography.caption,
-    color: colors.text.tertiary,
+  cardDate: {
+    fontSize: 12,
+    color: palette.textLight,
   },
-  menuButton: {
-    margin: -spacing.sm,
-  },
-  menuContent: {
-    backgroundColor: colors.background.paper,
-    borderRadius: radius.lg,
-    ...shadows.lg,
-  },
-  menuItemText: {
-    ...typography.bodyMedium,
-    color: colors.text.primary,
-  },
-  menuItemDanger: {
-    color: colors.error.main,
+  menuBtn: {
+    padding: 8,
   },
 
-  // Empty State
+  // Menu
+  menuContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  menuItemText: {
+    fontSize: 14,
+    color: palette.textDark,
+  },
+
+  // ── Empty State ──
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing['3xl'],
+    paddingHorizontal: 40,
   },
-  emptyIconContainer: {
+  emptyIconWrap: {
+    marginBottom: 24,
+  },
+  emptyIconInner: {
     width: 96,
     height: 96,
-    borderRadius: radius['2xl'],
-    backgroundColor: colors.background.sunken,
+    borderRadius: 30,
+    backgroundColor: palette.indigoMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xl,
+    borderWidth: 1,
+    borderColor: palette.indigo + '15',
   },
   emptyTitle: {
-    ...typography.h2,
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: '700',
+    color: palette.textDark,
+    marginBottom: 8,
+    letterSpacing: -0.5,
   },
-  emptyDescription: {
-    ...typography.bodyMedium,
-    color: colors.text.secondary,
+  emptySubtitle: {
+    fontSize: 15,
+    color: palette.textLight,
     textAlign: 'center',
-    marginBottom: spacing['2xl'],
+    lineHeight: 22,
+    marginBottom: 32,
   },
-  emptyButton: {
+  emptyBtn: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  emptyBtnInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary.main,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radius.xl,
-    gap: spacing.sm,
-    ...shadows.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    gap: 8,
   },
-  emptyButtonPressed: {
-    backgroundColor: colors.primary.dark,
-  },
-  emptyButtonText: {
-    ...typography.labelLarge,
-    color: colors.text.inverse,
+  emptyBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 
-  // No Results
-  noResultsContainer: {
+  // ── No Results ──
+  noResults: {
     alignItems: 'center',
-    paddingVertical: spacing['4xl'],
+    paddingVertical: 56,
   },
-  noResultsText: {
-    ...typography.bodyMedium,
-    color: colors.text.tertiary,
-    marginTop: spacing.lg,
+  noResultsIcon: {
+    width: 68,
+    height: 68,
+    borderRadius: 22,
+    backgroundColor: palette.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  noResultsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: palette.textDark,
+    marginBottom: 4,
+  },
+  noResultsHint: {
+    fontSize: 14,
+    color: palette.textLight,
   },
 
-  // Snackbars
-  offlineSnackbar: {
-    backgroundColor: colors.warning.main,
-  },
-  snackbar: {
-    backgroundColor: colors.neutral[800],
-  },
-
-  // FAB
-  fab: {
+  // ── Offline ──
+  offlineBanner: {
     position: 'absolute',
-    right: spacing.xl,
-    bottom: Platform.OS === 'ios' ? 75 : 70, // Position above tab bar
-    backgroundColor: colors.primary.main,
-    borderRadius: radius.xl,
+    left: 24,
+    right: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 119, 6, 0.15)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  offlineText: {
+    fontSize: 13,
+    color: palette.amber,
+    fontWeight: '500',
+  },
+
+  // Snackbar
+  snackbar: {
+    backgroundColor: palette.headerBg,
+    borderRadius: 14,
+  },
+
+  // ── FAB ──
+  fabWrap: {
+    position: 'absolute',
+    right: 24,
     zIndex: 1000,
-    elevation: 8,
-    ...shadows.primary,
+  },
+  fab: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabShadow: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    right: 6,
+    bottom: -4,
+    borderRadius: 20,
+    backgroundColor: palette.indigo,
+    opacity: 0.2,
+    zIndex: -1,
   },
 });

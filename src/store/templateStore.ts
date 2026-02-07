@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ResumeTemplate } from '@/types';
 import { templatesService } from '@/services/firebaseService';
+import { useAuthStore } from './authStore';
 
 interface TemplateState {
   templates: ResumeTemplate[];
@@ -16,13 +17,42 @@ interface TemplateState {
 
 const STORAGE_KEY = '@templates';
 
-export const useTemplateStore = create<TemplateState>((set, get) => ({
-  templates: [],
-  isFirebaseEnabled: false,
-  unsubscribeFirebase: null,
-  isLoading: false,
+export const useTemplateStore = create<TemplateState>((set, get) => {
+  // Helper function to enable/disable Firebase based on auth state
+  const syncFirebaseState = (user: any) => {
+    if (user) {
+      // User is logged in - always enable Firebase sync
+      if (!get().isFirebaseEnabled) {
+        get().enableFirebase();
+      }
+    } else {
+      // User logged out - disable Firebase
+      if (get().isFirebaseEnabled) {
+        get().disableFirebase();
+      }
+    }
+  };
 
-  enableFirebase: () => {
+  // Subscribe to auth state changes to automatically enable/disable Firebase
+  // Note: Templates are public, but we still sync when authenticated
+  useAuthStore.subscribe((state) => {
+    syncFirebaseState(state.user);
+  });
+
+  // Check immediately if user is already authenticated (for app reloads)
+  const currentUser = useAuthStore.getState().user;
+  if (currentUser) {
+    // Use setTimeout to ensure store is fully initialized
+    setTimeout(() => syncFirebaseState(currentUser), 0);
+  }
+
+  return {
+    templates: [],
+    isFirebaseEnabled: false,
+    unsubscribeFirebase: null,
+    isLoading: false,
+
+    enableFirebase: () => {
     const { unsubscribeFirebase } = get();
     if (unsubscribeFirebase) {
       unsubscribeFirebase(); // Clean up existing subscription
@@ -86,5 +116,6 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
   getTemplate: (id) => {
     return get().templates.find(template => template.id === id);
   },
-}));
+  };
+});
 

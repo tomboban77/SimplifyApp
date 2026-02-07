@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { View, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, radius, shadows, spacing } from '@/theme';
+import { palette } from '@/theme/palette';
 
 /**
  * Custom Tab Bar Icon with active indicator
@@ -47,8 +47,8 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary.main,
-        tabBarInactiveTintColor: colors.text.tertiary,
+        tabBarActiveTintColor: palette.indigo,
+        tabBarInactiveTintColor: palette.textLight,
         tabBarShowLabel: true,
         tabBarStyle: [
           styles.tabBar,
@@ -113,16 +113,19 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: colors.background.paper,
+    backgroundColor: palette.cardBg,
     borderTopWidth: 1,
-    borderTopColor: colors.border.light,
-    paddingTop: spacing.xs,
-    ...shadows.md,
+    borderTopColor: palette.border,
+    paddingTop: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
     elevation: 12,
   },
   tabBarItem: {
-    paddingTop: spacing.xxs,
-    paddingBottom: spacing.xxs,
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   tabBarLabel: {
     fontSize: 11,
@@ -150,6 +153,6 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.primary.main,
+    backgroundColor: palette.indigo,
   },
 });
