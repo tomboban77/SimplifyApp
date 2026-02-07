@@ -2,13 +2,14 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Document } from '@/types';
 import { documentsService } from '@/services/firebaseService';
+import { useAuthStore } from './authStore';
 
 interface DocumentState {
   documents: Document[];
   isFirebaseEnabled: boolean;
   unsubscribeFirebase: (() => void) | null;
   loadDocuments: () => Promise<void>;
-  createDocument: (doc: Omit<Document, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Document>;
+  createDocument: (doc: Omit<Document, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => Promise<Document>;
   updateDocument: (id: string, updates: Partial<Document>) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
   enableFirebase: () => void;
@@ -28,7 +29,14 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       unsubscribeFirebase(); // Clean up existing subscription
     }
 
-    const unsubscribe = documentsService.subscribe((firebaseDocuments) => {
+    // Get current user ID
+    const userId = useAuthStore.getState().user?.uid;
+    if (!userId) {
+      console.error('Cannot enable Firebase sync: User not authenticated');
+      return;
+    }
+
+    const unsubscribe = documentsService.subscribe(userId, (firebaseDocuments) => {
       set({ documents: firebaseDocuments });
       // Also sync to local storage for offline access
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(firebaseDocuments));
@@ -65,11 +73,16 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
   createDocument: async (doc) => {
     const { isFirebaseEnabled } = get();
+    const userId = useAuthStore.getState().user?.uid;
+    
+    if (!userId) {
+      throw new Error('User must be authenticated to create documents');
+    }
     
     // Try Firebase first if enabled
     if (isFirebaseEnabled) {
       try {
-        const result = await documentsService.create(doc);
+        const result = await documentsService.create(doc, userId);
         return result;
       } catch (error: any) {
         console.error('❌ Firebase create failed, using local storage:', error);
@@ -80,6 +93,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     // Local storage fallback
     const newDoc: Document = {
       ...doc,
+      userId, // Include userId even in local storage
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

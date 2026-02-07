@@ -1,5 +1,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore, collection, doc, setDoc, deleteDoc, getDocs, query, orderBy, Timestamp, onSnapshot } from 'firebase/firestore';
+import { initializeAuth, getReactNativePersistence, getAuth, Auth } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getFirestore, Firestore, collection, doc, setDoc, deleteDoc, getDocs, query, orderBy, Timestamp, onSnapshot, where } from 'firebase/firestore';
 import { Document, Resume, ResumeTemplate } from '@/types';
 
 // Firebase configuration - all values must come from environment variables
@@ -14,6 +16,7 @@ const firebaseConfig = {
 
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
+let auth: Auth | null = null;
 
 /**
  * Initialize Firebase
@@ -63,6 +66,27 @@ export const initializeFirebase = (): Firestore | null => {
     // Get Firestore instance
     db = getFirestore(app);
     
+    // Initialize Auth with AsyncStorage persistence for React Native
+    // This ensures auth state persists across app restarts
+    try {
+      // Check if auth is already initialized
+      if (!auth) {
+        auth = initializeAuth(app, {
+          persistence: getReactNativePersistence(AsyncStorage)
+        });
+        console.log('✅ Firebase Auth initialized with persistence');
+      }
+    } catch (error: any) {
+      // If auth is already initialized, get the existing instance
+      if (error.code === 'auth/already-initialized') {
+        auth = getAuth(app);
+        console.log('✅ Firebase Auth already initialized');
+      } else {
+        console.error('❌ Firebase Auth initialization failed:', error);
+        throw error;
+      }
+    }
+    
     return db;
   } catch (error: any) {
     console.error('❌ Firebase initialization failed:', error);
@@ -79,6 +103,17 @@ export const getFirestoreDB = (): Firestore | null => {
     return initializeFirebase();
   }
   return db;
+};
+
+/**
+ * Get Firebase Auth instance
+ * Initializes Firebase if not already initialized
+ */
+export const getAuthInstance = (): Auth | null => {
+  if (!auth) {
+    initializeFirebase();
+  }
+  return auth;
 };
 
 /**
@@ -122,7 +157,7 @@ export const testFirebaseConnection = async (): Promise<boolean> => {
 // Documents Service for Firebase
 export const documentsService = {
   // Create document
-  create: async (document: Omit<Document, 'id' | 'createdAt' | 'updatedAt'>): Promise<Document> => {
+  create: async (document: Omit<Document, 'id' | 'createdAt' | 'updatedAt'>, userId: string): Promise<Document> => {
     const firestoreDB = getFirestoreDB();
     if (!firestoreDB) {
       throw new Error('Firebase not initialized');
@@ -132,6 +167,7 @@ export const documentsService = {
     const newDoc: Document = {
       id: docRef.id,
       ...document,
+      userId, // Associate with user
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -170,8 +206,8 @@ export const documentsService = {
     await deleteDoc(docRef);
   },
 
-  // Subscribe to real-time updates
-  subscribe: (callback: (documents: Document[]) => void): (() => void) => {
+  // Subscribe to real-time updates (filtered by userId)
+  subscribe: (userId: string, callback: (documents: Document[]) => void): (() => void) => {
     const firestoreDB = getFirestoreDB();
     if (!firestoreDB) {
       return () => {};
@@ -179,6 +215,7 @@ export const documentsService = {
 
     const q = query(
       collection(firestoreDB, 'documents'),
+      where('userId', '==', userId),
       orderBy('updatedAt', 'desc')
     );
 
@@ -190,6 +227,7 @@ export const documentsService = {
           id: docSnap.id,
           title: data.title || '',
           content: data.content || '',
+          userId: data.userId || '',
           createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString(),
           updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt || new Date().toISOString(),
         };
@@ -205,7 +243,7 @@ export const documentsService = {
 // Resumes Service for Firebase
 export const resumesService = {
   // Create resume
-  create: async (resume: Omit<Resume, 'id' | 'createdAt' | 'updatedAt'>): Promise<Resume> => {
+  create: async (resume: Omit<Resume, 'id' | 'createdAt' | 'updatedAt'>, userId: string): Promise<Resume> => {
     const firestoreDB = getFirestoreDB();
     if (!firestoreDB) {
       throw new Error('Firebase not initialized');
@@ -215,6 +253,7 @@ export const resumesService = {
     const newResume: Resume = {
       id: docRef.id,
       ...resume,
+      userId, // Associate with user
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -253,8 +292,8 @@ export const resumesService = {
     await deleteDoc(docRef);
   },
 
-  // Subscribe to real-time updates
-  subscribe: (callback: (resumes: Resume[]) => void): (() => void) => {
+  // Subscribe to real-time updates (filtered by userId)
+  subscribe: (userId: string, callback: (resumes: Resume[]) => void): (() => void) => {
     const firestoreDB = getFirestoreDB();
     if (!firestoreDB) {
       return () => {};
@@ -262,6 +301,7 @@ export const resumesService = {
 
     const q = query(
       collection(firestoreDB, 'resumes'),
+      where('userId', '==', userId),
       orderBy('updatedAt', 'desc')
     );
 
@@ -274,6 +314,7 @@ export const resumesService = {
           title: data.title || '',
           templateId: data.templateId || '',
           data: data.data || {},
+          userId: data.userId || '',
           createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString(),
           updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt || new Date().toISOString(),
         };

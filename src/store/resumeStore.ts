@@ -2,13 +2,14 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Resume, ResumeData } from '@/types';
 import { resumesService } from '@/services/firebaseService';
+import { useAuthStore } from './authStore';
 
 interface ResumeState {
   resumes: Resume[];
   isFirebaseEnabled: boolean;
   unsubscribeFirebase: (() => void) | null;
   loadResumes: () => Promise<void>;
-  addResume: (resume: Omit<Resume, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Resume>;
+  addResume: (resume: Omit<Resume, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => Promise<Resume>;
   updateResume: (id: string, updates: Partial<Resume>) => Promise<void>;
   deleteResume: (id: string) => Promise<void>;
   getResume: (id: string) => Resume | undefined;
@@ -45,7 +46,14 @@ export const useResumeStore = create<ResumeState>((set, get) => ({
       unsubscribeFirebase(); // Clean up existing subscription
     }
 
-    const unsubscribe = resumesService.subscribe((firebaseResumes) => {
+    // Get current user ID
+    const userId = useAuthStore.getState().user?.uid;
+    if (!userId) {
+      console.error('Cannot enable Firebase sync: User not authenticated');
+      return;
+    }
+
+    const unsubscribe = resumesService.subscribe(userId, (firebaseResumes) => {
       set({ resumes: firebaseResumes });
       // Also sync to local storage for offline access
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(firebaseResumes));
@@ -82,11 +90,16 @@ export const useResumeStore = create<ResumeState>((set, get) => ({
 
   addResume: async (resume) => {
     const { isFirebaseEnabled } = get();
+    const userId = useAuthStore.getState().user?.uid;
+    
+    if (!userId) {
+      throw new Error('User must be authenticated to create resumes');
+    }
     
     // Try Firebase first if enabled
     if (isFirebaseEnabled) {
       try {
-        const result = await resumesService.create(resume);
+        const result = await resumesService.create(resume, userId);
         return result;
       } catch (error: any) {
         console.error('❌ Firebase create failed, using local storage:', error);
@@ -97,6 +110,7 @@ export const useResumeStore = create<ResumeState>((set, get) => ({
     // Local storage fallback
     const newResume: Resume = {
       ...resume,
+      userId, // Include userId even in local storage
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

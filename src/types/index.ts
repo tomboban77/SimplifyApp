@@ -2,6 +2,7 @@ export interface Document {
   id: string;
   title: string;
   content: string;
+  userId: string; // User who owns this document
   createdAt: string;
   updatedAt: string;
 }
@@ -11,6 +12,7 @@ export interface Resume {
   title: string;
   templateId: string; // Dynamic template ID from Firebase (e.g., 'template1', 'template2', etc.)
   data: ResumeData;
+  userId: string; // User who owns this resume
   createdAt: string;
   updatedAt: string;
 }
